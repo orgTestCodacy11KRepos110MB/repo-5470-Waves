@@ -23,7 +23,7 @@ import com.wavesplatform.lang.v1.evaluator.ctx.impl.waves.WavesContext
 import com.wavesplatform.lang.v1.evaluator.{Contextful, ContextfulVal, EvaluatorV2}
 import com.wavesplatform.lang.v1.traits.Environment
 import com.wavesplatform.lang.v1.traits.domain.Recipient.{Address, Alias}
-import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease}
+import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, SimpleLease}
 import com.wavesplatform.lang.v1.{CTX, ContractLimits}
 import com.wavesplatform.test.*
 import org.scalatest.Inside
@@ -2026,8 +2026,8 @@ class IntegrationTest extends PropSpec with Inside {
 
   property("calculateLeaseId") {
     val txId = ByteStr.decodeBase58("aaaa").get
-    val id1  = Lease.calculateId(Lease(Address(ByteStr.decodeBase58("bbbb").get), 1234567, 123), txId)
-    val id2  = Lease.calculateId(Lease(Alias("alias"), 9876, 100), txId)
+    val id1  = Lease.calculateId(SimpleLease(Address(ByteStr.decodeBase58("bbbb").get), 1234567, 123), txId)
+    val id2  = Lease.calculateId(SimpleLease(Alias("alias"), 9876, 100), txId)
     val script =
       s"""
          | calculateLeaseId(Lease(Address(base58'bbbb'), 1234567, 123)) == base58'$id1' &&
