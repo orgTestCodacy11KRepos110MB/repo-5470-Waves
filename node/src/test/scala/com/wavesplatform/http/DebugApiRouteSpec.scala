@@ -23,7 +23,7 @@ import com.wavesplatform.lang.v1.compiler.Terms.TRUE
 import com.wavesplatform.lang.v1.compiler.TestCompiler
 import com.wavesplatform.lang.v1.estimator.v3.ScriptEstimatorV3
 import com.wavesplatform.lang.v1.evaluator.ctx.impl.PureContext
-import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient}
+import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient, SimpleLease}
 import com.wavesplatform.network.PeerDatabase
 import com.wavesplatform.settings.{TestFunctionalitySettings, WavesSettings}
 import com.wavesplatform.state.StateHash.SectionId
@@ -1544,12 +1544,12 @@ class DebugApiRouteSpec
       val amount1    = 100
       val recipient1 = Recipient.Address(ByteStr.decodeBase58("3NAgxLPGnw3RGv9JT6NTDaG5D1iLUehg2xd").get)
       val nonce1     = 0
-      val leaseId1   = Lease.calculateId(Lease(recipient1, amount1, nonce1), invoke.id())
+      val leaseId1   = Lease.calculateId(SimpleLease(recipient1, amount1, nonce1), invoke.id())
 
       val amount2    = 20
       val recipient2 = Recipient.Alias("some_alias")
       val nonce2     = 2
-      val leaseId2   = Lease.calculateId(Lease(recipient2, amount2, nonce2), invoke.id())
+      val leaseId2   = Lease.calculateId(SimpleLease(recipient2, amount2, nonce2), invoke.id())
 
       val blockchain = createBlockchainStub { blockchain =>
         (blockchain.balance _).when(*, *).returns(Long.MaxValue)

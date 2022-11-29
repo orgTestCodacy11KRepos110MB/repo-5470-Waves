@@ -7,7 +7,7 @@ import com.wavesplatform.db.WithState.AddrWithBalance
 import com.wavesplatform.features.BlockchainFeatures
 import com.wavesplatform.lang.directives.values.V5
 import com.wavesplatform.lang.v1.compiler.TestCompiler
-import com.wavesplatform.lang.v1.traits.domain.{Lease, Recipient}
+import com.wavesplatform.lang.v1.traits.domain.{Lease, Recipient, SimpleLease}
 import com.wavesplatform.settings.TestFunctionalitySettings
 import com.wavesplatform.state.{DataEntry, Diff, EmptyDataEntry, StringDataEntry, diffs}
 import com.wavesplatform.test.DomainPresets.RideV4
@@ -147,7 +147,7 @@ class CommonAccountApiSpec extends FreeSpec with WithDomain with BlocksTransacti
 
         val api = CommonAccountsApi(() => Diff.empty, d.db, d.blockchain)
         val leaseId = Lease.calculateId(
-          Lease(
+          SimpleLease(
             Recipient.Address(ByteStr(TxHelpers.defaultAddress.bytes)),
             1,
             1

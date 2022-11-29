@@ -12,7 +12,7 @@ import com.wavesplatform.lang.directives.values.*
 import com.wavesplatform.lang.script.Script
 import com.wavesplatform.lang.v1.ContractLimits
 import com.wavesplatform.lang.v1.compiler.TestCompiler
-import com.wavesplatform.lang.v1.traits.domain.{Lease, Recipient}
+import com.wavesplatform.lang.v1.traits.domain.{Lease, Recipient, SimpleLease}
 import com.wavesplatform.settings.{FunctionalitySettings, TestFunctionalitySettings}
 import com.wavesplatform.state.diffs.FeeValidation.{FeeConstants, FeeUnit}
 import com.wavesplatform.state.diffs.{ENOUGH_AMT, produceRejectOrFailedDiff}
@@ -221,7 +221,7 @@ class LeaseActionDiffTest extends PropSpec with WithDomain {
     val leaseToDApp = TxHelpers.lease(invoker, dAppAcc.toAddress, leaseTxAmount2, fee)
     val leaseCancelId =
       if (cancelLeaseActionByTx)
-        Lease.calculateId(Lease(recipient, leaseAmount, 0), invoke.id())
+        Lease.calculateId(SimpleLease(recipient, leaseAmount, 0), invoke.id())
       else if (cancelLeaseFromInvoker)
         leaseToDApp.id()
       else
@@ -628,7 +628,7 @@ class LeaseActionDiffTest extends PropSpec with WithDomain {
       TestBlock.create(Seq(invoke)),
       v5Features
     ) { case (diff, _) =>
-      val id = Lease.calculateId(Lease(recipient, amount, nonce = 0), invoke.id())
+      val id = Lease.calculateId(SimpleLease(recipient, amount, nonce = 0), invoke.id())
       diff.errorMessage(invoke.id()).get.text shouldBe s"Lease with id=$id is already in the state"
     }
   }
@@ -829,7 +829,7 @@ class LeaseActionDiffTest extends PropSpec with WithDomain {
       TestBlock.create(Seq(invoke)),
       v5Features
     ) { case (diff, _) =>
-      val leaseId = Lease.calculateId(Lease(recipient, amount, nonce = 0), invoke.id())
+      val leaseId = Lease.calculateId(SimpleLease(recipient, amount, nonce = 0), invoke.id())
       diff.errorMessage(invoke.id()).get.text shouldBe s"Duplicate LeaseCancel id(s): $leaseId"
     }
   }

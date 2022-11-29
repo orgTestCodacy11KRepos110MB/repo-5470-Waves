@@ -281,7 +281,10 @@ class TransactionsRouteSpec
       val recipientAlias   = aliasGen.sample.get
       val invoke           = TxHelpers.invoke(invokeAddress)
       val scriptResult = InvokeScriptResult(
-        leases = Seq(InvokeScriptResult.Lease(recipientAddress, 100, 1, leaseId1), InvokeScriptResult.Lease(recipientAlias, 200, 3, leaseId2)),
+        leases = Seq(
+          InvokeScriptResult.SimpleLease(recipientAddress, 100, 1, leaseId1),
+          InvokeScriptResult.SimpleLease(recipientAlias, 200, 3, leaseId2)
+        ),
         leaseCancels = Seq(LeaseCancel(leaseCancelId))
       )
 
@@ -620,7 +623,10 @@ class TransactionsRouteSpec
 
       val invoke = TxHelpers.invoke(invokeAddress)
       val scriptResult = InvokeScriptResult(
-        leases = Seq(InvokeScriptResult.Lease(recipientAddress, 100, 1, leaseId1), InvokeScriptResult.Lease(recipientAlias, 200, 3, leaseId2)),
+        leases = Seq(
+          InvokeScriptResult.SimpleLease(recipientAddress, 100, 1, leaseId1),
+          InvokeScriptResult.SimpleLease(recipientAlias, 200, 3, leaseId2)
+        ),
         leaseCancels = Seq(LeaseCancel(leaseCancelId)),
         invokes = Seq(
           InvokeScriptResult.Invocation(
@@ -628,7 +634,7 @@ class TransactionsRouteSpec
             InvokeScriptResult.Call("nested", Nil),
             Nil,
             InvokeScriptResult(
-              leases = Seq(InvokeScriptResult.Lease(recipientAddress, 100, 1, nestedLeaseId)),
+              leases = Seq(InvokeScriptResult.SimpleLease(recipientAddress, 100, 1, nestedLeaseId)),
               leaseCancels = Seq(LeaseCancel(nestedLeaseCancelId))
             )
           )

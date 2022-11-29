@@ -9,7 +9,7 @@ import com.wavesplatform.lang.directives.values.V6
 import com.wavesplatform.lang.script.Script
 import com.wavesplatform.lang.v1.compiler.Terms.{CONST_BOOLEAN, EXPR}
 import com.wavesplatform.lang.v1.compiler.TestCompiler
-import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient}
+import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient, SimpleLease}
 import com.wavesplatform.settings.WavesSettings
 import com.wavesplatform.test.*
 import com.wavesplatform.transaction.TxValidationError.WithLog
@@ -955,7 +955,7 @@ class SyncDAppErrorLogTest extends PropSpec with WithDomain with OptionValues {
           }
         }
         .foreach { error =>
-          val leaseId = Lease.calculateId(Lease(Recipient.Address(ByteStr(dApp2.toAddress.bytes)), 2, 0), invoke.id())
+          val leaseId = Lease.calculateId(SimpleLease(Recipient.Address(ByteStr(dApp2.toAddress.bytes)), 2, 0), invoke.id())
           val assetId = Issue.calculateId(0, "desc", isReissuable = true, "testAsset", 20, 0, invoke.id())
 
           error shouldBe expectedResult(invoke, leaseId, assetId)
