@@ -134,7 +134,7 @@ object InvokeScriptTransactionDiff {
               tx.id(),
               tx.dApp,
               tx.funcCall,
-              scriptResultE.map(_.scriptResult),
+              scriptResultE.map(r => InvokeDiffsCommon.enrichLeaseTrace(r.scriptResult, blockchain.height, tx)),
               scriptResultE.fold(
                 {
                   case w: WithLog => w.log

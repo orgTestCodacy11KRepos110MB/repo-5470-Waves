@@ -17,7 +17,7 @@ import com.wavesplatform.lang.v1.evaluator.ctx.impl.waves.Types.*
 import com.wavesplatform.lang.v1.evaluator.ctx.impl.{EnvironmentFunctions, PureContext, notImplemented, unit}
 import com.wavesplatform.lang.v1.evaluator.ctx.{BaseFunction, NativeFunction, UserFunction}
 import com.wavesplatform.lang.v1.evaluator.{ContextfulNativeFunction, ContextfulUserFunction, FunctionIds, Log}
-import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient}
+import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient, SimpleLease}
 import com.wavesplatform.lang.v1.traits.{DataType, Environment}
 import com.wavesplatform.lang.v1.{BaseGlobal, FunctionHeader}
 import com.wavesplatform.lang.{CoevalF, CommonError, ExecutionError, FailOrRejectError}
@@ -895,7 +895,7 @@ object Functions {
                 case _ =>
                   CONST_BYTESTR(
                     Lease.calculateId(
-                      Lease(
+                      SimpleLease(
                         recipient,
                         fields(FieldNames.LeaseAmount).asInstanceOf[CONST_LONG].t,
                         fields(FieldNames.LeaseNonce).asInstanceOf[CONST_LONG].t

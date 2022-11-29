@@ -266,7 +266,7 @@ object ScriptResult {
     (fields.get(FieldNames.LeaseRecipient), fields.get(FieldNames.LeaseAmount), fields.get(FieldNames.LeaseNonce)) match {
       case (Some(recipient: CaseObj), Some(CONST_LONG(quantity)), Some(CONST_LONG(nonce))) =>
         processRecipient(recipient, ctx, version)
-          .map(Lease(_, quantity, nonce))
+          .map(SimpleLease(_, quantity, nonce))
       case other =>
         err(other, version, FieldNames.Lease)
     }

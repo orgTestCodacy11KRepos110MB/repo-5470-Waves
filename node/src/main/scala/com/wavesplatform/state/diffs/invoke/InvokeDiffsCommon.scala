@@ -268,9 +268,9 @@ object InvokeDiffsCommon {
         reissueList,
         burnList,
         sponsorFeeList,
-        leaseList.map { case l @ Lease(recipient, amount, nonce) =>
+        leaseList.map { case l: Lease =>
           val id = Lease.calculateId(l, tx.txId)
-          InvokeScriptResult.Lease(AddressOrAlias.fromRide(recipient).explicitGet(), amount, nonce, id)
+          InvokeScriptResult.SimpleLease(AddressOrAlias.fromRide(l.recipient).explicitGet(), l.amount, l.nonce, id)
         },
         leaseCancelList
       )
@@ -771,5 +771,19 @@ object InvokeDiffsCommon {
           }
           .toLeft(r)
       case _ => Right(r)
+    }
+
+  def enrichLeaseTrace(result: ScriptResult, height: Int, invoke: InvokeScriptTransactionLike): ScriptResult =
+    result match {
+      case r: ScriptResultV4 if r.actions.exists(_.isInstanceOf[Lease]) =>
+        val newActions = r.actions.map {
+          case l: Lease =>
+            ExtendedLease(l.recipient, l.amount, l.nonce, height, invoke.id(), ByteStr(invoke.sender.toAddress.bytes))
+          case other =>
+            other
+        }
+        r.copy(newActions)
+      case other =>
+        other
     }
 }

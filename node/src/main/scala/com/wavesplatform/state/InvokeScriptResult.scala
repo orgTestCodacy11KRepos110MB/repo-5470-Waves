@@ -75,7 +75,32 @@ object InvokeScriptResult {
     implicit val jsonWrites = Json.writes[Payment]
   }
 
-  case class Lease(recipient: AddressOrAlias, amount: Long, nonce: Long, id: ByteStr)
+  sealed trait Lease {
+    val recipient: AddressOrAlias
+    val amount: Long
+    val nonce: Long
+    val id: ByteStr
+  }
+  case class SimpleLease(recipient: AddressOrAlias, amount: Long, nonce: Long, id: ByteStr) extends Lease
+
+  case class ExtendedLease(
+    recipient: AddressOrAlias,
+    amount: Long,
+    nonce: Long,
+    id: ByteStr,
+    height: Int,
+    invokeId: ByteStr,
+    senderAddress: ByteStr
+  ) extends Lease
+
+  object ExtendedLease {
+    implicit val recipientWrites = Lease.recipientWrites
+    implicit val jsonWrites = Json.writes[ExtendedLease]
+  }
+  object SimpleLease {
+    implicit val recipientWrites = Lease.recipientWrites
+    implicit val jsonWrites = Json.writes[SimpleLease]
+  }
   object Lease {
     implicit val recipientWrites = Writes[AddressOrAlias] {
       case address: Address => implicitly[Writes[Address]].writes(address)
@@ -84,6 +109,7 @@ object InvokeScriptResult {
     }
     implicit val jsonWrites = Json.writes[Lease]
   }
+
 
   def paymentsFromPortfolio(addr: Address, portfolio: Portfolio): Seq[Payment] = {
     val waves  = InvokeScriptResult.Payment(addr, Waves, portfolio.balance)
@@ -178,7 +204,20 @@ object InvokeScriptResult {
       Payment(langAddressToAddress(t.address), Asset.fromCompatId(t.assetId), t.amount)
 
     def langLeaseToLease(l: lang.Lease): Lease =
-      Lease(AddressOrAlias.fromRide(l.recipient).explicitGet(), l.amount, l.nonce, lang.Lease.calculateId(l, invokeId))
+      l match {
+        case l: lang.SimpleLease =>
+          SimpleLease(AddressOrAlias.fromRide(l.recipient).explicitGet(), l.amount, l.nonce, lang.Lease.calculateId(l, invokeId))
+        case l: lang.ExtendedLease =>
+          ExtendedLease(
+            AddressOrAlias.fromRide(l.recipient).explicitGet(),
+            l.amount,
+            l.nonce,
+            lang.Lease.calculateId(l, invokeId),
+            l.height,
+            l.invokeId,
+            l.senderAddress
+          )
+      }
 
     result match {
       case ScriptResultV3(ds, ts, _) =>
@@ -332,7 +371,7 @@ object InvokeScriptResult {
 
   private def toVanillaLease(l: PBInvokeScriptResult.Lease) = {
     val recipient = PBRecipients.toAddressOrAlias(l.getRecipient, AddressScheme.current.chainId).explicitGet()
-    Lease(recipient, l.amount, l.nonce, l.leaseId.toByteStr)
+    SimpleLease(recipient, l.amount, l.nonce, l.leaseId.toByteStr)
   }
 
   private def toVanillaLeaseCancel(sf: PBInvokeScriptResult.LeaseCancel) =
