@@ -13,7 +13,7 @@ import com.wavesplatform.api.http.ApiError.*
 import com.wavesplatform.block.Block
 import com.wavesplatform.block.Block.TransactionProof
 import com.wavesplatform.common.state.ByteStr
-import com.wavesplatform.common.utils.{Base58, *}
+import com.wavesplatform.common.utils.Base58
 import com.wavesplatform.database.protobuf.EthereumTransactionMeta.Payload
 import com.wavesplatform.features.BlockchainFeatures
 import com.wavesplatform.lang.v1.serialization.SerdeV1
