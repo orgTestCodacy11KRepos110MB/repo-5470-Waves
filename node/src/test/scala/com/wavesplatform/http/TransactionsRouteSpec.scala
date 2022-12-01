@@ -43,8 +43,8 @@ import org.scalatest.OptionValues
 import play.api.libs.json.*
 import play.api.libs.json.Json.JsValueWrapper
 
-import scala.concurrent.duration.*
 import scala.concurrent.Future
+import scala.concurrent.duration.*
 import scala.util.Random
 
 class TransactionsRouteSpec
@@ -72,7 +72,7 @@ class TransactionsRouteSpec
     utxPoolSize,
     utxPoolSynchronizer,
     testTime,
-    new RouteTimeout(60.seconds)(Schedulers.fixedPool(1, "heavy-request-scheduler"))
+    new RouteTimeout(600000.seconds)(Schedulers.fixedPool(1, "heavy-request-scheduler"))
   )
 
   private val route = seal(transactionsApiRoute.route)
@@ -282,12 +282,15 @@ class TransactionsRouteSpec
       val invoke           = TxHelpers.invoke(invokeAddress)
       val scriptResult = InvokeScriptResult(
         leases = Seq(
-          InvokeScriptResult.SimpleLease(recipientAddress, 100, 1, leaseId1),
-          InvokeScriptResult.SimpleLease(recipientAlias, 200, 3, leaseId2)
+          InvokeScriptResult.Lease(recipientAddress, 100, 1, leaseId1),
+          InvokeScriptResult.Lease(recipientAlias, 200, 3, leaseId2)
         ),
         leaseCancels = Seq(LeaseCancel(leaseCancelId))
       )
 
+      (blockchain.resolveAlias _)
+        .expects(recipientAlias)
+        .returning(Right(recipientAddress))
       (blockchain.leaseDetails _)
         .expects(leaseId1)
         .returning(Some(LeaseDetails(TestValues.keyPair.publicKey, TestValues.address, 123, LeaseDetails.Status.Active, leaseId1, 1)))
@@ -337,8 +340,8 @@ class TransactionsRouteSpec
                                  |      "id": "$leaseId1",
                                  |      "originTransactionId": "$leaseId1",
                                  |      "sender": "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |      "recipient": "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |      "amount": 123,
+                                 |      "recipient": "${recipientAddress}",
+                                 |      "amount": 100,
                                  |      "height": 1,
                                  |      "status":"active",
                                  |      "cancelHeight" : null,
@@ -348,8 +351,8 @@ class TransactionsRouteSpec
                                  |      "id": "$leaseId2",
                                  |      "originTransactionId": "$leaseId2",
                                  |      "sender": "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |      "recipient": "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |      "amount": 123,
+                                 |      "recipient": "${recipientAddress}",
+                                 |      "amount": 200,
                                  |      "height": 1,
                                  |      "status":"active",
                                  |      "cancelHeight" : null,
@@ -365,7 +368,7 @@ class TransactionsRouteSpec
                                  |      "amount": 123,
                                  |      "height": 1,
                                  |      "status":"canceled",
-                                 |      "cancelHeight" : 2,
+                                 |      "cancelHeight" : 1,
                                  |      "cancelTransactionId" : "$leaseCancelId"
                                  |    }
                                  |  ],
@@ -624,8 +627,8 @@ class TransactionsRouteSpec
       val invoke = TxHelpers.invoke(invokeAddress)
       val scriptResult = InvokeScriptResult(
         leases = Seq(
-          InvokeScriptResult.SimpleLease(recipientAddress, 100, 1, leaseId1),
-          InvokeScriptResult.SimpleLease(recipientAlias, 200, 3, leaseId2)
+          InvokeScriptResult.Lease(recipientAddress, 100, 1, leaseId1),
+          InvokeScriptResult.Lease(recipientAlias, 200, 3, leaseId2)
         ),
         leaseCancels = Seq(LeaseCancel(leaseCancelId)),
         invokes = Seq(
@@ -634,13 +637,16 @@ class TransactionsRouteSpec
             InvokeScriptResult.Call("nested", Nil),
             Nil,
             InvokeScriptResult(
-              leases = Seq(InvokeScriptResult.SimpleLease(recipientAddress, 100, 1, nestedLeaseId)),
+              leases = Seq(InvokeScriptResult.Lease(recipientAddress, 100, 1, nestedLeaseId)),
               leaseCancels = Seq(LeaseCancel(nestedLeaseCancelId))
             )
           )
         )
       )
 
+      (blockchain.resolveAlias _)
+        .expects(recipientAlias)
+        .returning(Right(recipientAddress))
       (blockchain.leaseDetails _)
         .expects(leaseId1)
         .returning(Some(LeaseDetails(TestValues.keyPair.publicKey, TestValues.address, 123, LeaseDetails.Status.Active, leaseId1, 1)))
@@ -710,8 +716,8 @@ class TransactionsRouteSpec
                                  |    "id" : "$leaseId1",
                                  |    "originTransactionId" : "$leaseId1",
                                  |    "sender" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |    "recipient" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |    "amount" : 123,
+                                 |    "recipient" : "$recipientAddress",
+                                 |    "amount" : 100,
                                  |    "height" : 1,
                                  |    "status":"active",
                                  |    "cancelHeight" : null,
@@ -720,8 +726,8 @@ class TransactionsRouteSpec
                                  |    "id" : "$leaseId2",
                                  |    "originTransactionId" : "$leaseId2",
                                  |    "sender" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |    "recipient" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |    "amount" : 123,
+                                 |    "recipient" : "$recipientAddress",
+                                 |    "amount" : 200,
                                  |    "height" : 1,
                                  |    "status":"active",
                                  |    "cancelHeight" : null,
@@ -735,7 +741,7 @@ class TransactionsRouteSpec
                                  |    "amount" : 123,
                                  |    "height" : 1,
                                  |    "status" : "canceled",
-                                 |    "cancelHeight" : 2,
+                                 |    "cancelHeight" : 1,
                                  |    "cancelTransactionId" : "$leaseCancelId"
                                  |  } ],
                                  |  "invokes" : [ {
@@ -756,8 +762,8 @@ class TransactionsRouteSpec
                                  |        "id" : "$nestedLeaseId",
                                  |        "originTransactionId" : "$nestedLeaseId",
                                  |        "sender" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |        "recipient" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-                                 |        "amount" : 123,
+                                 |        "recipient" : "$recipientAddress",
+                                 |        "amount" : 100,
                                  |        "height" : 1,
                                  |        "status":"active",
                                  |        "cancelHeight" : null,
@@ -771,7 +777,7 @@ class TransactionsRouteSpec
                                  |        "amount" : 123,
                                  |        "height" : 1,
                                  |        "status" : "canceled",
-                                 |        "cancelHeight" : 2,
+                                 |        "cancelHeight" : 1,
                                  |        "cancelTransactionId" : "$nestedLeaseCancelId"
                                  |      } ],
                                  |      "invokes" : [ ]

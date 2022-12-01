@@ -75,32 +75,16 @@ object InvokeScriptResult {
     implicit val jsonWrites = Json.writes[Payment]
   }
 
-  sealed trait Lease {
-    val recipient: AddressOrAlias
-    val amount: Long
-    val nonce: Long
-    val id: ByteStr
-  }
-  case class SimpleLease(recipient: AddressOrAlias, amount: Long, nonce: Long, id: ByteStr) extends Lease
-
-  case class ExtendedLease(
+  case class Lease(
     recipient: AddressOrAlias,
     amount: Long,
     nonce: Long,
     id: ByteStr,
-    height: Int,
-    invokeId: ByteStr,
-    senderAddress: ByteStr
-  ) extends Lease
+    height: Option[Int] = None,
+    invokeId: Option[ByteStr] = None,
+    senderAddress: Option[ByteStr] = None
+  )
 
-  object ExtendedLease {
-    implicit val recipientWrites = Lease.recipientWrites
-    implicit val jsonWrites = Json.writes[ExtendedLease]
-  }
-  object SimpleLease {
-    implicit val recipientWrites = Lease.recipientWrites
-    implicit val jsonWrites = Json.writes[SimpleLease]
-  }
   object Lease {
     implicit val recipientWrites = Writes[AddressOrAlias] {
       case address: Address => implicitly[Writes[Address]].writes(address)
@@ -205,10 +189,8 @@ object InvokeScriptResult {
 
     def langLeaseToLease(l: lang.Lease): Lease =
       l match {
-        case l: lang.SimpleLease =>
-          SimpleLease(AddressOrAlias.fromRide(l.recipient).explicitGet(), l.amount, l.nonce, lang.Lease.calculateId(l, invokeId))
-        case l: lang.ExtendedLease =>
-          ExtendedLease(
+        case l: lang.Lease =>
+          Lease(
             AddressOrAlias.fromRide(l.recipient).explicitGet(),
             l.amount,
             l.nonce,
@@ -371,7 +353,7 @@ object InvokeScriptResult {
 
   private def toVanillaLease(l: PBInvokeScriptResult.Lease) = {
     val recipient = PBRecipients.toAddressOrAlias(l.getRecipient, AddressScheme.current.chainId).explicitGet()
-    SimpleLease(recipient, l.amount, l.nonce, l.leaseId.toByteStr)
+    Lease(recipient, l.amount, l.nonce, l.leaseId.toByteStr)
   }
 
   private def toVanillaLeaseCancel(sf: PBInvokeScriptResult.LeaseCancel) =

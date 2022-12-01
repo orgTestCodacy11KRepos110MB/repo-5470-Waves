@@ -79,29 +79,23 @@ case class SponsorFee(
     minSponsoredAssetFee: Option[Long]
 ) extends CallableAction
 
-sealed trait Lease extends CallableAction {
-  val recipient: Recipient
-  val amount: Long
-  val nonce: Long
-}
-
-case class SimpleLease(
-    recipient: Recipient,
-    amount: Long,
-    nonce: Long
-) extends Lease
-
-case class ExtendedLease(
+case class Lease(
     recipient: Recipient,
     amount: Long,
     nonce: Long,
-    height: Int,
-    invokeId: ByteStr,
-    senderAddress: ByteStr
-) extends Lease
+    height: Option[Int] = None,
+    invokeId: Option[ByteStr] = None,
+    senderAddress: Option[ByteStr] = None
+) extends CallableAction
 
 case class LeaseCancel(
-    id: ByteStr
+    id: ByteStr,
+    height: Option[Int] = None,
+    invokeId: Option[ByteStr] = None,
+    sourceId: Option[ByteStr] = None,
+    senderAddress: Option[ByteStr] = None,
+    amount: Option[Long] = None,
+    recipient: Option[ByteStr] = None
 ) extends CallableAction
 
 object Lease {

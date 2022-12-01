@@ -270,7 +270,7 @@ object InvokeDiffsCommon {
         sponsorFeeList,
         leaseList.map { case l: Lease =>
           val id = Lease.calculateId(l, tx.txId)
-          InvokeScriptResult.SimpleLease(AddressOrAlias.fromRide(l.recipient).explicitGet(), l.amount, l.nonce, id)
+          InvokeScriptResult.Lease(AddressOrAlias.fromRide(l.recipient).explicitGet(), l.amount, l.nonce, id)
         },
         leaseCancelList
       )
@@ -773,14 +773,24 @@ object InvokeDiffsCommon {
       case _ => Right(r)
     }
 
-  def enrichLeaseTrace(result: ScriptResult, height: Int, invoke: InvokeScriptTransactionLike): ScriptResult =
+  def enrichLeaseTrace(result: ScriptResult, blockchain: Blockchain, invoke: InvokeScriptTransactionLike): ScriptResult =
     result match {
-      case r: ScriptResultV4 if r.actions.exists(_.isInstanceOf[Lease]) =>
+      case r: ScriptResultV4 if r.actions.exists(a => a.isInstanceOf[Lease] || a.isInstanceOf[LeaseCancel]) =>
         val newActions = r.actions.map {
           case l: Lease =>
-            ExtendedLease(l.recipient, l.amount, l.nonce, height, invoke.id(), ByteStr(invoke.sender.toAddress.bytes))
-          case other =>
-            other
+            Lease(l.recipient, l.amount, l.nonce, Some(blockchain.height), Some(invoke.id()), Some(ByteStr(invoke.sender.toAddress.bytes)))
+          case l: LeaseCancel =>
+            val info = blockchain.leaseDetails(l.id)
+            LeaseCancel(
+              l.id,
+              Some(blockchain.height),
+              Some(invoke.id()),
+              info.map(_.sourceId),
+              Some(ByteStr(invoke.sender.toAddress.bytes)),
+              info.map(_.amount),
+              info.flatMap(i => blockchain.resolveAlias(i.recipient).toOption).map(a => ByteStr(a.bytes))
+            )
+          case other => other
         }
         r.copy(newActions)
       case other =>

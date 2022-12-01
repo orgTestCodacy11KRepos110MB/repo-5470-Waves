@@ -7,7 +7,7 @@ import com.wavesplatform.api.http.{RouteTimeout, TransactionsApiRoute}
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.*
 import com.wavesplatform.lang.v1.estimator.v3.ScriptEstimatorV3
-import com.wavesplatform.lang.v1.traits.domain.{Lease, Recipient, SimpleLease}
+import com.wavesplatform.lang.v1.traits.domain.{Lease, Recipient}
 import com.wavesplatform.network.TransactionPublisher
 import com.wavesplatform.state.{AccountScriptInfo, Blockchain}
 import com.wavesplatform.test.TestTime
@@ -215,12 +215,12 @@ class TransactionBroadcastSpec
       val amount1    = 100
       val nonce1     = 0
       val recipient1 = Recipient.Address(ByteStr.decodeBase58("3NAgxLPGnw3RGv9JT6NTDaG5D1iLUehg2xd").get)
-      val leaseId1   = Lease.calculateId(SimpleLease(recipient1, amount1, nonce1), invoke.id())
+      val leaseId1   = Lease.calculateId(Lease(recipient1, amount1, nonce1), invoke.id())
 
       val amount2    = 20
       val nonce2     = 2
       val recipient2 = Recipient.Alias("some_alias")
-      val leaseId2   = Lease.calculateId(SimpleLease(recipient2, amount2, nonce2), invoke.id())
+      val leaseId2   = Lease.calculateId(Lease(recipient2, amount2, nonce2), invoke.id())
 
       val blockchain = createBlockchainStub { blockchain =>
         blockchain.stub.activateAllFeatures()
@@ -319,15 +319,24 @@ class TransactionBroadcastSpec
              |        "recipient" : "${recipient1.bytes}",
              |        "amount" : $amount1,
              |        "nonce" : $nonce1,
-             |        "id" : "$leaseId1"
+             |        "id" : "$leaseId1",
+             |        "height" : 1,
+             |        "invokeId" : "${invoke.id()}",
+             |        "senderAddress" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9"
              |      }, {
              |        "recipient" : "alias:T:${recipient2.name}",
              |        "amount" : $amount2,
              |        "nonce" : $nonce2,
-             |        "id" : "$leaseId2"
+             |        "id" : "$leaseId2",
+             |        "height" : 1,
+             |        "invokeId" : "${invoke.id()}",
+             |        "senderAddress" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9"
              |      } ],
              |      "leaseCancels" : [ {
-             |        "id" : "$leaseCancelId"
+             |        "id" : "$leaseCancelId",
+             |        "height" : 1,
+             |        "invokeId" : "${invoke.id()}",
+             |        "senderAddress" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9"
              |      } ],
              |      "invokes" : [ ]
              |    },

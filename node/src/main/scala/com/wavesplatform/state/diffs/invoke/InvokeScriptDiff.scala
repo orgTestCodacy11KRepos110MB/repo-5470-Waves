@@ -376,7 +376,7 @@ object InvokeScriptDiff {
 
             _ <- validateIntermediateBalances(blockchain, resultDiff, resultDiff.scriptsComplexity, log)
 
-            _ = invocationRoot.setResult(InvokeDiffsCommon.enrichLeaseTrace(scriptResult, blockchain.height, tx.root))
+            _ = invocationRoot.setResult(InvokeDiffsCommon.enrichLeaseTrace(scriptResult, blockchain, tx.root))
           } yield (
             resultDiff,
             evaluated,

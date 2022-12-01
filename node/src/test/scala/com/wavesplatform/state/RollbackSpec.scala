@@ -16,7 +16,7 @@ import com.wavesplatform.lang.script.v1.ExprScript
 import com.wavesplatform.lang.v1.FunctionHeader
 import com.wavesplatform.lang.v1.compiler.Terms.TRUE
 import com.wavesplatform.lang.v1.compiler.{Terms, TestCompiler}
-import com.wavesplatform.lang.v1.traits.domain.{Lease, SimpleLease}
+import com.wavesplatform.lang.v1.traits.domain.Lease
 import com.wavesplatform.settings.{TestFunctionalitySettings, WavesSettings}
 import com.wavesplatform.state.reader.LeaseDetails
 import com.wavesplatform.test.*
@@ -667,7 +667,7 @@ class RollbackSpec extends FreeSpec with WithDomain {
 
             // liquid block rollback
             val invokeId1 = append(d.lastBlockId, leaseFc)
-            val leaseId1  = Lease.calculateId(SimpleLease(leaseRecipientAddress.toAddress.toRide, leaseAmount, 0), invokeId1)
+            val leaseId1  = Lease.calculateId(Lease(leaseRecipientAddress.toAddress.toRide, leaseAmount, 0), invokeId1)
 
             d.blockchain.leaseBalance(leaseRecipientAddress.toAddress) shouldBe LeaseBalance(in = leaseAmount, out = 0)
             d.blockchain.leaseBalance(checkAddress) shouldBe LeaseBalance(in = 0, out = leaseAmount)
@@ -686,7 +686,7 @@ class RollbackSpec extends FreeSpec with WithDomain {
             // hardened block rollback
             val beforeInvoke2 = d.lastBlockId
             val invokeId2     = append(d.lastBlockId, leaseFc)
-            val leaseId2      = Lease.calculateId(SimpleLease(leaseRecipientAddress.toAddress.toRide, leaseAmount, 0), invokeId2)
+            val leaseId2      = Lease.calculateId(Lease(leaseRecipientAddress.toAddress.toRide, leaseAmount, 0), invokeId2)
 
             d.blockchain.leaseBalance(leaseRecipientAddress.toAddress) shouldBe LeaseBalance(in = leaseAmount, out = 0)
             d.blockchain.leaseBalance(checkAddress) shouldBe LeaseBalance(in = 0, out = leaseAmount)
@@ -847,7 +847,7 @@ class RollbackSpec extends FreeSpec with WithDomain {
 
             val (leaseAmount, leaseFc) = leaseFunctionCall(leaseRecipientAddress.toAddress)
             val leaseInvokeId          = appendBlock(d, invoker, dApp, setScriptToConvert)(d.lastBlockId, leaseFc)
-            val leaseId                = Lease.calculateId(SimpleLease(leaseRecipientAddress.toAddress.toRide, leaseAmount, 0), leaseInvokeId)
+            val leaseId                = Lease.calculateId(Lease(leaseRecipientAddress.toAddress.toRide, leaseAmount, 0), leaseInvokeId)
 
             assertLeaseCancel(
               dApp,

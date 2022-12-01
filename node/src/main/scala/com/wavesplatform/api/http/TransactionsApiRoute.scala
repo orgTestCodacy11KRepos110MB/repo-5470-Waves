@@ -20,7 +20,7 @@ import com.wavesplatform.lang.v1.serialization.SerdeV1
 import com.wavesplatform.network.TransactionPublisher
 import com.wavesplatform.protobuf.transaction.PBAmounts
 import com.wavesplatform.settings.RestAPISettings
-import com.wavesplatform.state.InvokeScriptResult.Lease
+import com.wavesplatform.state.InvokeScriptResult.{Lease, LeaseCancel}
 import com.wavesplatform.state.{Blockchain, InvokeScriptResult, TxMeta}
 import com.wavesplatform.state.reader.LeaseDetails
 import com.wavesplatform.transaction.*
@@ -354,27 +354,32 @@ object TransactionsApiRoute {
     private[this] def isBlockV5(height: Int): Boolean = blockchain.isFeatureActivated(BlockchainFeatures.BlockV5, height)
 
     // Extended lease format. Overrides default
-    private[this] def leaseToLeaseRef(lease: Lease): LeaseRef = {
-      val details   = blockchain.leaseDetails(lease.id)
-      val recipient = details.flatMap(d => blockchain.resolveAlias(d.recipient).toOption)
+    private[this] def leaseToRef(lease: Lease): LeaseRef = {
+      val details       = blockchain.leaseDetails(lease.id)
+      val height        = lease.height.orElse(details.map(_.height))
+      val invokeId      = lease.invokeId.orElse(details.map(_.sourceId))
+      val senderAddress = lease.senderAddress.flatMap(a => Address.fromBytes(a.arr).toOption).orElse(details.map(_.sender.toAddress))
+      val recipient     = blockchain.resolveAlias(lease.recipient).toOption
 
       val (status, cancelHeight, cancelTxId) = details.map(_.status) match {
         case Some(LeaseDetails.Status.Active) | None           => (true, None, None)
         case Some(LeaseDetails.Status.Cancelled(height, txId)) => (false, Some(height), txId)
         case Some(LeaseDetails.Status.Expired(height))         => (false, Some(height), None)
       }
-
-      val (height, invokeId, senderAddress) = lease match {
-        case el: InvokeScriptResult.ExtendedLease =>
-          (Some(el.height), Some(el.invokeId), Some(Address.fromBytes(el.senderAddress.arr).explicitGet()))
-        case _: InvokeScriptResult.SimpleLease =>
-          (details.map(_.height), details.map(_.sourceId), details.map(_.sender.toAddress))
-      }
-
       LeaseRef(lease.id, invokeId, senderAddress, recipient, lease.amount, height, LeaseStatus(status), cancelHeight, cancelTxId)
     }
 
-    // Extended lease format. Overrides default
+    private[this] def leaseCancelToRef(cancel: LeaseCancel): LeaseRef = {
+      val details       = blockchain.leaseDetails(cancel.id)
+      val height        = cancel.height.orElse(details.map(_.height))
+      val sourceId      = cancel.sourceId.orElse(details.map(_.sourceId))
+      val cancelId      = cancel.invokeId.orElse(details.map(_.status).collect { case LeaseDetails.Status.Cancelled(_, txId) => txId }.flatten)
+      val senderAddress = cancel.senderAddress.flatMap(a => Address.fromBytes(a.arr).toOption).orElse(details.map(_.sender.toAddress))
+      val recipient     = cancel.recipient.flatMap(a => Address.fromBytes(a.arr).toOption).orElse(details.map(_.recipient).flatMap(blockchain.resolveAlias(_).toOption))
+      val amount        = cancel.amount.orElse(details.map(_.amount)).getOrElse(0L)
+      LeaseRef(cancel.id, sourceId, senderAddress, recipient, amount, height, LeaseStatus(false), height, cancelId)
+    }
+
     private[this] def leaseIdToLeaseRef(leaseId: ByteStr): LeaseRef = {
       val ld        = blockchain.leaseDetails(leaseId)
       val tm        = ld.flatMap(d => blockchain.transactionMeta(d.sourceId))
@@ -390,10 +395,10 @@ object TransactionsApiRoute {
     }
 
     private[http] implicit val leaseWrites: OWrites[InvokeScriptResult.Lease] =
-      LeaseRef.jsonWrites.contramap(leaseToLeaseRef)
+      LeaseRef.jsonWrites.contramap(leaseToRef)
 
     private[http] implicit val leaseCancelWrites: OWrites[InvokeScriptResult.LeaseCancel] =
-      LeaseRef.jsonWrites.contramap((l: InvokeScriptResult.LeaseCancel) => leaseIdToLeaseRef(l.id))
+      LeaseRef.jsonWrites.contramap(leaseCancelToRef)
 
     // To override nested InvokeScriptResult writes
     private[http] implicit lazy val invocationWrites: OWrites[InvokeScriptResult.Invocation] = (i: InvokeScriptResult.Invocation) =>
