@@ -88,8 +88,8 @@ object UtilsEvaluator {
       )
       ctx  = BlockchainContext.build(ds, environment, fixUnicodeFunctions = true, useNewPowPrecision = true, fixBigScriptField = true)
       call = ContractEvaluator.buildSyntheticCall(ContractScriptCompactor.decompact(script.expr.asInstanceOf[DApp]), expr)
-      limitedResult <- EvaluatorV2
-        .applyLimitedCoeval(
+      (log, comp, res) = EvaluatorV2
+        .applyLimited(
           call,
           LogExtraInfo(),
           limit,
@@ -99,11 +99,9 @@ object UtilsEvaluator {
           newMode = blockchain.newEvaluatorMode,
           checkConstructorArgsTypes = true
         )
-        .value()
-        .leftMap { case (err, _, log) => InvokeRejectError(err.message, log) }
-      (evaluated, usedComplexity, log) <- limitedResult match {
-        case (eval: EVALUATED, unusedComplexity, log) => Right((eval, limit - unusedComplexity, log))
-        case (_: EXPR, _, log)                        => Left(InvokeRejectError(s"Calculation complexity limit exceeded", log))
+      result <- res match {
+        case Right(eval) => Right((eval, comp, log))
+        case _           => Left(InvokeRejectError(s"Calculation complexity limit exceeded", log))
       }
       rootScriptResult <- ScriptResult
         .fromObj(ctx, ByteStr.empty, evaluated, ds.stdLibVersion, 0)

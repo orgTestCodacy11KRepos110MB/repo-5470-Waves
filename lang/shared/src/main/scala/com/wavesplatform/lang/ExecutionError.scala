@@ -8,3 +8,7 @@ case class CommonError(details: String, cause: Option[ValidationError] = None) e
   override def message: String  = cause.map(_.toString).getOrElse(details)
 }
 case class FailOrRejectError(message: String, skipInvokeComplexity: Boolean = true) extends ExecutionError with ValidationError
+
+case class EvaluationException(cause: Throwable) extends ExecutionError {
+  override lazy val message: String = s"class ${cause.getClass} ${String.valueOf(cause.getMessage)}"
+}
