@@ -32,7 +32,7 @@ import com.wavesplatform.state.diffs.ENOUGH_AMT
 import com.wavesplatform.state.reader.LeaseDetails
 import com.wavesplatform.state.{AccountScriptInfo, AssetDescription, AssetScriptInfo, Blockchain, Height, NG, StateHash, TxMeta}
 import com.wavesplatform.test.*
-import com.wavesplatform.transaction.TxHelpers.{defaultAddress, setScript, signer}
+import com.wavesplatform.transaction.TxHelpers.{defaultAddress, lease, setScript, signer}
 import com.wavesplatform.transaction.assets.exchange.OrderType
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction.Payment
@@ -2089,17 +2089,19 @@ class DebugApiRouteSpec
              | }
            """.stripMargin
         )
+        val leaseTx = lease(dApp2Kp, leaseAddress)
         val dApp2 = TestCompiler(V6).compileContract(
           s"""
              | @Callable(i)
              | func default() = {
-             |   let lease  = Lease(Address(base58'$leaseAddress'), $amount)
-             |   let cancel = LeaseCancel(calculateLeaseId(lease))
-             |   [lease, cancel]
+             |   let lease   = Lease(Address(base58'$leaseAddress'), $amount)
+             |   let cancel1 = LeaseCancel(calculateLeaseId(lease))
+             |   let cancel2 = LeaseCancel(base58'${leaseTx.id()}')
+             |   [lease, cancel1, cancel2]
              | }
            """.stripMargin
         )
-        d.appendBlock(setScript(dApp1Kp, dApp1), setScript(dApp2Kp, dApp2))
+        d.appendBlock(leaseTx, setScript(dApp1Kp, dApp1), setScript(dApp2Kp, dApp2))
 
         val route   = debugApiRoute.copy(blockchain = d.blockchain, priorityPoolBlockchain = () => d.blockchain).route
         val invoke  = TxHelpers.invoke(dApp1Kp.toAddress)
@@ -2156,7 +2158,18 @@ class DebugApiRouteSpec
                |                "status": "canceled",
                |                "cancelHeight": null,
                |                "cancelTransactionId": "${invoke.id()}"
+               |              }, {
+               |                "id" : "${leaseTx.id()}",
+               |                "originTransactionId" : "${leaseTx.id()}",
+               |                "sender" : "${dApp2Kp.toAddress}",
+               |                "recipient" : "$leaseAddress",
+               |                "amount" : ${leaseTx.amount},
+               |                "height" : 2,
+               |                "status" : "active",
+               |                "cancelHeight" : null,
+               |                "cancelTransactionId" : "${invoke.id()}"
                |              }
+               |
                |            ],
                |            "invokes": []
                |          },
@@ -2336,7 +2349,7 @@ class DebugApiRouteSpec
                |              ]
                |            },
                |            {
-               |              "name": "cancel",
+               |              "name": "cancel1",
                |              "type": "LeaseCancel",
                |              "value": {
                |                "leaseId": {
@@ -2356,6 +2369,31 @@ class DebugApiRouteSpec
                |              "value": 51920
                |            },
                |            {
+               |              "name" : "LeaseCancel.@args",
+               |              "type" : "Array",
+               |              "value" : [ {
+               |                "type" : "ByteVector",
+               |                "value" : "${leaseTx.id()}"
+               |              } ]
+               |            }, {
+               |              "name" : "cancel2",
+               |              "type" : "LeaseCancel",
+               |              "value" : {
+               |                "leaseId" : {
+               |                  "type" : "ByteVector",
+               |                  "value" : "${leaseTx.id()}"
+               |                }
+               |              }
+               |            }, {
+               |              "name" : "LeaseCancel.@complexity",
+               |              "type" : "Int",
+               |              "value" : 1
+               |            }, {
+               |              "name" : "@complexityLimit",
+               |              "type" : "Int",
+               |              "value" : 51919
+               |            },
+               |            {
                |              "name": "cons.@args",
                |              "type": "Array",
                |              "value": [
@@ -2364,7 +2402,7 @@ class DebugApiRouteSpec
                |                  "value": {
                |                    "leaseId": {
                |                      "type": "ByteVector",
-               |                      "value": "$leaseId"
+               |                      "value": "${leaseTx.id()}"
                |                    }
                |                  }
                |                },
@@ -2382,9 +2420,39 @@ class DebugApiRouteSpec
                |            {
                |              "name": "@complexityLimit",
                |              "type": "Int",
-               |              "value": 51919
-               |            },
-               |            {
+               |              "value": 51918
+               |            }, {
+               |              "name" : "cons.@args",
+               |              "type" : "Array",
+               |              "value" : [ {
+               |                "type" : "LeaseCancel",
+               |                "value" : {
+               |                  "leaseId" : {
+               |                    "type" : "ByteVector",
+               |                    "value" : "$leaseId"
+               |                  }
+               |                }
+               |              }, {
+               |                "type" : "Array",
+               |                "value" : [ {
+               |                  "type" : "LeaseCancel",
+               |                  "value" : {
+               |                    "leaseId" : {
+               |                      "type" : "ByteVector",
+               |                      "value" : "${leaseTx.id()}"
+               |                    }
+               |                  }
+               |                } ]
+               |              } ]
+               |            }, {
+               |              "name" : "cons.@complexity",
+               |              "type" : "Int",
+               |              "value" : 1
+               |            }, {
+               |              "name" : "@complexityLimit",
+               |              "type" : "Int",
+               |              "value" : 51917
+               |            }, {
                |              "name": "cons.@args",
                |              "type": "Array",
                |              "value": [
@@ -2409,24 +2477,27 @@ class DebugApiRouteSpec
                |                      "value": 0
                |                    }
                |                  }
-               |                },
-               |                {
-               |                  "type": "Array",
-               |                  "value": [
-               |                    {
-               |                      "type": "LeaseCancel",
-               |                      "value": {
-               |                        "leaseId": {
-               |                          "type": "ByteVector",
-               |                          "value": "$leaseId"
-               |                        }
-               |                      }
-               |                    }
-               |                  ]
-               |                }
-               |              ]
-               |            },
-               |            {
+               |           }, {
+               |             "type" : "Array",
+               |             "value" : [ {
+               |               "type" : "LeaseCancel",
+               |               "value" : {
+               |                 "leaseId" : {
+               |                   "type" : "ByteVector",
+               |                   "value" : "$leaseId"
+               |                 }
+               |               }
+               |             }, {
+               |               "type" : "LeaseCancel",
+               |               "value" : {
+               |                 "leaseId" : {
+               |                   "type" : "ByteVector",
+               |                   "value" : "${leaseTx.id()}"
+               |                 }
+               |               }
+               |             } ]
+               |           } ]
+               |         }, {
                |              "name": "cons.@complexity",
                |              "type": "Int",
                |              "value": 1
@@ -2434,7 +2505,7 @@ class DebugApiRouteSpec
                |            {
                |              "name": "@complexityLimit",
                |              "type": "Int",
-               |              "value": 51918
+               |              "value": 51916
                |            }
                |          ]
                |        }
