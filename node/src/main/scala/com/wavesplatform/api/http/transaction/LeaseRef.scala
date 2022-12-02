@@ -15,7 +15,7 @@ private[transaction] final case class LeaseRef(
     originTransactionId: Option[ByteStr],
     sender: Option[Address],
     recipient: Option[Address],
-    amount: Long,
+    amount: Option[Long],
     height: Option[Int],
     status: LeaseStatus,
     cancelHeight: Option[Int],
@@ -27,48 +27,20 @@ private[transaction] object LeaseRef {
   implicit val byteStrWrites: Format[ByteStr] = com.wavesplatform.utils.byteStrFormat
   implicit val jsonWrites: OWrites[LeaseRef]  = Json.writes[LeaseRef]
 
-  def fromLease(lease: Lease, blockchain: Blockchain): LeaseRef = {
-    val recipient = blockchain.resolveAlias(lease.recipient).toOption
-    val (height, invokeId, senderAddress, status, cancelHeight, cancelTxId) =
-      blockchain
-        .leaseDetails(lease.id)
-        .fold {
-          val senderAddress = lease.senderAddress.flatMap(b => Address.fromBytes(b.arr).toOption)
-          (lease.height, lease.invokeId, senderAddress, true, Option.empty[Int], Option.empty[ByteStr])
-        } { details =>
-          val (status, cancelHeight, cancelTxId) = details.status match {
-            case LeaseDetails.Status.Active                  => (true, None, None)
-            case LeaseDetails.Status.Cancelled(height, txId) => (false, Some(height), txId)
-            case LeaseDetails.Status.Expired(height)         => (false, Some(height), None)
-          }
-          (Some(details.height), Some(details.sourceId), Some(details.sender.toAddress), status, cancelHeight, cancelTxId)
-        }
-    LeaseRef(lease.id, invokeId, senderAddress, recipient, lease.amount, height, LeaseStatus(status), cancelHeight, cancelTxId)
-  }
-
-  def fromLeaseCancel(cancel: LeaseCancel, blockchain: Blockchain): LeaseRef = {
-    val (height, sourceId, cancelId, amount, senderAddress, recipient) =
-      blockchain
-        .leaseDetails(cancel.id)
-        .fold {
-          val senderAddress = cancel.senderAddress.flatMap(b => Address.fromBytes(b.arr).toOption)
-          val recipient     = cancel.recipient.flatMap(a => Address.fromBytes(a.arr).toOption)
-          (cancel.height, cancel.sourceId, cancel.invokeId, cancel.amount.getOrElse(0L), senderAddress, recipient)
-        } { details =>
-          val cancelId = details.status match {
-            case LeaseDetails.Status.Cancelled(_, txId) => txId
-            case _                                      => None
-          }
-          val recipient = blockchain.resolveAlias(details.recipient).toOption
-          (Some(details.height), Some(details.sourceId), cancelId, details.amount, Some(details.sender.toAddress), recipient)
-        }
-    LeaseRef(cancel.id, sourceId, senderAddress, recipient, amount, height, LeaseStatus(false), height, cancelId)
-  }
-
-  def fromLeaseCancelTransaction(leaseCancel: LeaseCancelTransaction, blockchain: Blockchain): LeaseRef = {
-    val details   = blockchain.leaseDetails(leaseCancel.leaseId)
-    val txMeta    = details.flatMap(d => blockchain.transactionMeta(d.sourceId))
-    val recipient = details.flatMap(d => blockchain.resolveAlias(d.recipient).toOption)
+  private def create(
+      blockchain: Blockchain,
+      leaseId: ByteStr,
+      height: Option[Int] = None,
+      cancelId: Option[ByteStr] = None,
+      sourceId: Option[ByteStr] = None,
+      senderAddressB: Option[ByteStr] = None,
+      amount: Option[Long] = None,
+      recipient: Option[Address] = None
+  ): LeaseRef = {
+    val details          = blockchain.leaseDetails(leaseId)
+    val txMeta           = details.flatMap(d => blockchain.transactionMeta(d.sourceId))
+    val detailsRecipient = details.flatMap(d => blockchain.resolveAlias(d.recipient).toOption)
+    val senderAddress    = senderAddressB.flatMap(b => Address.fromBytes(b.arr).toOption)
 
     val (status, cancelHeight, cancelTxId) = details.map(_.status) match {
       case Some(LeaseDetails.Status.Active) | None           => (true, None, None)
@@ -77,15 +49,28 @@ private[transaction] object LeaseRef {
     }
 
     LeaseRef(
-      leaseCancel.leaseId,
-      details.map(_.sourceId),
-      details.map(_.sender.toAddress),
-      recipient,
-      details.map(_.amount).getOrElse(0),
-      txMeta.map(_.height),
+      leaseId,
+      details.map(_.sourceId).orElse(sourceId),
+      details.map(_.sender.toAddress).orElse(senderAddress),
+      detailsRecipient.orElse(recipient),
+      details.map(_.amount).orElse(amount),
+      txMeta.map(_.height).orElse(height),
       LeaseStatus(status),
       cancelHeight,
-      cancelTxId
+      cancelTxId.orElse(cancelId)
     )
   }
+
+  def fromLease(lease: Lease, blockchain: Blockchain): LeaseRef = {
+    val recipient = blockchain.resolveAlias(lease.recipient).toOption
+    create(blockchain, lease.id, lease.height, None, lease.invokeId, lease.senderAddress, Some(lease.amount), recipient)
+  }
+
+  def fromLeaseCancel(cancel: LeaseCancel, blockchain: Blockchain): LeaseRef = {
+    val recipient = cancel.recipient.flatMap(a => Address.fromBytes(a.arr).toOption)
+    create(blockchain, cancel.id, cancel.height, cancel.invokeId, cancel.sourceId, cancel.senderAddress, cancel.amount, recipient)
+  }
+
+  def fromLeaseCancelTransaction(leaseCancel: LeaseCancelTransaction, blockchain: Blockchain): LeaseRef =
+    create(blockchain, leaseCancel.leaseId)
 }
