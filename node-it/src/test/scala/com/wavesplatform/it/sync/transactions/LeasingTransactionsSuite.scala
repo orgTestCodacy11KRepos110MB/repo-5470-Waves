@@ -1,8 +1,8 @@
 package com.wavesplatform.it.sync.transactions
 
 import com.wavesplatform.account.AddressScheme
-import com.wavesplatform.api.http.TransactionsApiRoute
-import com.wavesplatform.api.http.TransactionsApiRoute.LeaseStatus
+import com.wavesplatform.api.http.transaction.TransactionsApiRoute.LeaseStatus
+import com.wavesplatform.api.http.transaction.TransactionsApiRoute
 import com.wavesplatform.it.api.SyncHttpApi._
 import com.wavesplatform.it.api.TransactionInfo
 import com.wavesplatform.it.sync._

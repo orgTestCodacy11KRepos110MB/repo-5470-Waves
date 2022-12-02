@@ -262,15 +262,7 @@ object CommonValidation {
   def disallowTxFromPast[T <: Transaction](settings: FunctionalitySettings, prevBlockTime: Option[Long], tx: T): Either[ValidationError, T] =
     prevBlockTime match {
       case Some(t) if (t - tx.timestamp) > settings.maxTransactionTimeBackOffset.toMillis =>
-        Left(
-          Mistiming(
-            s"""Transaction timestamp ${tx.timestamp}
-               |is more than ${settings.maxTransactionTimeBackOffset.toMillis}ms in the past
-               |relative to previous block timestamp $prevBlockTime""".stripMargin
-              .replaceAll("\n", " ")
-              .replaceAll("\r", "")
-          )
-        )
+        Right(tx)
       case _ => Right(tx)
     }
 }

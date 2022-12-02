@@ -3,7 +3,8 @@ package com.wavesplatform.serialization
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.wavesplatform.account.Address
-import com.wavesplatform.api.http.{ApiMarshallers, RouteTimeout, TransactionsApiRoute}
+import com.wavesplatform.api.http.transaction.TransactionsApiRoute
+import com.wavesplatform.api.http.{ApiMarshallers, RouteTimeout}
 import com.wavesplatform.db.WithDomain
 import com.wavesplatform.db.WithState.AddrWithBalance
 import com.wavesplatform.history.Domain

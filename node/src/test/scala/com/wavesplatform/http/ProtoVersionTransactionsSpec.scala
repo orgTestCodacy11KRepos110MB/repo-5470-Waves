@@ -5,7 +5,7 @@ import akka.http.scaladsl.server.Route
 import com.wavesplatform.TestWallet
 import com.wavesplatform.account.KeyPair
 import com.wavesplatform.api.common.CommonTransactionsApi
-import com.wavesplatform.api.http.{RouteTimeout, TransactionsApiRoute}
+import com.wavesplatform.api.http.{RouteTimeout, transaction}
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.{Base64, EitherExt2}
 import com.wavesplatform.lang.v1.FunctionHeader.User
@@ -21,16 +21,7 @@ import com.wavesplatform.transaction.lease.{LeaseCancelTransaction, LeaseTransac
 import com.wavesplatform.transaction.smart.{InvokeScriptTransaction, SetScriptTransaction}
 import com.wavesplatform.transaction.transfer.MassTransferTransaction.ParsedTransfer
 import com.wavesplatform.transaction.transfer.{MassTransferTransaction, TransferTransaction}
-import com.wavesplatform.transaction.{
-  Asset,
-  CreateAliasTransaction,
-  DataTransaction,
-  Proofs,
-  Transaction,
-  TxNonNegativeAmount,
-  TxVersion,
-  VersionedTransaction
-}
+import com.wavesplatform.transaction.{Asset, CreateAliasTransaction, DataTransaction, Proofs, Transaction, TxNonNegativeAmount, TxVersion, VersionedTransaction}
 import com.wavesplatform.utils.Schedulers
 import com.wavesplatform.utx.UtxPool
 import org.scalacheck.Gen
@@ -58,7 +49,7 @@ class ProtoVersionTransactionsSpec extends RouteSpec("/transactions") with RestA
 
   private val transactionsApi = mock[CommonTransactionsApi]
   private val route: Route =
-    TransactionsApiRoute(
+    transaction.TransactionsApiRoute(
       restAPISettings,
       transactionsApi,
       testWallet,

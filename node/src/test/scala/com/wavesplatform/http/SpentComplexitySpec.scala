@@ -1,6 +1,7 @@
 package com.wavesplatform.http
 
-import com.wavesplatform.api.http.{ApiMarshallers, RouteTimeout, TransactionsApiRoute}
+import com.wavesplatform.api.http.transaction.TransactionsApiRoute
+import com.wavesplatform.api.http.{ApiMarshallers, RouteTimeout}
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.EitherExt2
 import com.wavesplatform.db.WithDomain

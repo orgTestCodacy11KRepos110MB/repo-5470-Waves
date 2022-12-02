@@ -5,7 +5,8 @@ import akka.http.scaladsl.server.Route
 import com.wavesplatform.account.KeyPair
 import com.wavesplatform.api.common.{CommonTransactionsApi, TransactionMeta}
 import com.wavesplatform.api.http.ApiError.{InvalidIds, *}
-import com.wavesplatform.api.http.{RouteTimeout, TransactionsApiRoute}
+import com.wavesplatform.api.http.RouteTimeout
+import com.wavesplatform.api.http.transaction.TransactionsApiRoute
 import com.wavesplatform.block.Block
 import com.wavesplatform.block.Block.TransactionProof
 import com.wavesplatform.common.state.ByteStr

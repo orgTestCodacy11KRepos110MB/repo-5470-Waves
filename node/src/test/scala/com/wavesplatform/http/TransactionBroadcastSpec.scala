@@ -3,7 +3,8 @@ package com.wavesplatform.http
 import com.wavesplatform.BlockchainStubHelpers
 import com.wavesplatform.account.{AddressScheme, KeyPair}
 import com.wavesplatform.api.common.CommonTransactionsApi
-import com.wavesplatform.api.http.{RouteTimeout, TransactionsApiRoute}
+import com.wavesplatform.api.http.{RouteTimeout}
+import com.wavesplatform.api.http.transaction.TransactionsApiRoute
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.*
 import com.wavesplatform.lang.v1.estimator.v3.ScriptEstimatorV3

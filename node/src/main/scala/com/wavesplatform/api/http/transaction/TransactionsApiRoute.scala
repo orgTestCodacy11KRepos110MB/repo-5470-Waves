@@ -1,4 +1,4 @@
-package com.wavesplatform.api.http
+package com.wavesplatform.api.http.transaction
 
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.server.Route
@@ -10,6 +10,7 @@ import cats.syntax.traverse.*
 import com.wavesplatform.account.{Address, Alias}
 import com.wavesplatform.api.common.{CommonTransactionsApi, TransactionMeta}
 import com.wavesplatform.api.http.ApiError.*
+import com.wavesplatform.api.http.*
 import com.wavesplatform.block.Block
 import com.wavesplatform.block.Block.TransactionProof
 import com.wavesplatform.common.state.ByteStr
@@ -20,9 +21,7 @@ import com.wavesplatform.lang.v1.serialization.SerdeV1
 import com.wavesplatform.network.TransactionPublisher
 import com.wavesplatform.protobuf.transaction.PBAmounts
 import com.wavesplatform.settings.RestAPISettings
-import com.wavesplatform.state.InvokeScriptResult.{Lease, LeaseCancel}
 import com.wavesplatform.state.{Blockchain, InvokeScriptResult, TxMeta}
-import com.wavesplatform.state.reader.LeaseDetails
 import com.wavesplatform.transaction.*
 import com.wavesplatform.transaction.lease.*
 import com.wavesplatform.transaction.serialization.impl.InvokeScriptTxSerializer
@@ -286,11 +285,11 @@ object TransactionsApiRoute {
     def transactionMetaJson(meta: TransactionMeta): JsObject = {
       val specificInfo = meta.transaction match {
         case lease: LeaseTransaction =>
-          import com.wavesplatform.api.http.TransactionsApiRoute.LeaseStatus._
+          import TransactionsApiRoute.LeaseStatus.*
           Json.obj("status" -> (if (blockchain.leaseDetails(lease.id()).exists(_.isActive)) active else canceled))
 
         case leaseCancel: LeaseCancelTransaction =>
-          Json.obj("lease" -> leaseIdToLeaseRef(leaseCancel.leaseId))
+          Json.obj("lease" -> LeaseRef.fromLeaseCancelTransaction(leaseCancel, blockchain))
 
         case _ => JsObject.empty
       }
@@ -343,7 +342,7 @@ object TransactionsApiRoute {
 
     def unconfirmedTxExtendedJson(tx: Transaction): JsObject = tx match {
       case leaseCancel: LeaseCancelTransaction =>
-        leaseCancel.json() ++ Json.obj("lease" -> leaseIdToLeaseRef(leaseCancel.leaseId))
+        leaseCancel.json() ++ Json.obj("lease" -> LeaseRef.fromLeaseCancelTransaction(leaseCancel, blockchain))
 
       case t => t.json()
     }
@@ -351,54 +350,14 @@ object TransactionsApiRoute {
     def metaJson(m: TxMeta): JsObject =
       TransactionJsonSerializer.applicationStatus(isBlockV5(m.height), m.succeeded) ++ Json.obj("spentComplexity" -> m.spentComplexity)
 
-    private[this] def isBlockV5(height: Int): Boolean = blockchain.isFeatureActivated(BlockchainFeatures.BlockV5, height)
-
-    // Extended lease format. Overrides default
-    private[this] def leaseToRef(lease: Lease): LeaseRef = {
-      val details       = blockchain.leaseDetails(lease.id)
-      val height        = lease.height.orElse(details.map(_.height))
-      val invokeId      = lease.invokeId.orElse(details.map(_.sourceId))
-      val senderAddress = lease.senderAddress.flatMap(a => Address.fromBytes(a.arr).toOption).orElse(details.map(_.sender.toAddress))
-      val recipient     = blockchain.resolveAlias(lease.recipient).toOption
-
-      val (status, cancelHeight, cancelTxId) = details.map(_.status) match {
-        case Some(LeaseDetails.Status.Active) | None           => (true, None, None)
-        case Some(LeaseDetails.Status.Cancelled(height, txId)) => (false, Some(height), txId)
-        case Some(LeaseDetails.Status.Expired(height))         => (false, Some(height), None)
-      }
-      LeaseRef(lease.id, invokeId, senderAddress, recipient, lease.amount, height, LeaseStatus(status), cancelHeight, cancelTxId)
-    }
-
-    private[this] def leaseCancelToRef(cancel: LeaseCancel): LeaseRef = {
-      val details       = blockchain.leaseDetails(cancel.id)
-      val height        = cancel.height.orElse(details.map(_.height))
-      val sourceId      = cancel.sourceId.orElse(details.map(_.sourceId))
-      val cancelId      = cancel.invokeId.orElse(details.map(_.status).collect { case LeaseDetails.Status.Cancelled(_, txId) => txId }.flatten)
-      val senderAddress = cancel.senderAddress.flatMap(a => Address.fromBytes(a.arr).toOption).orElse(details.map(_.sender.toAddress))
-      val recipient     = cancel.recipient.flatMap(a => Address.fromBytes(a.arr).toOption).orElse(details.map(_.recipient).flatMap(blockchain.resolveAlias(_).toOption))
-      val amount        = cancel.amount.orElse(details.map(_.amount)).getOrElse(0L)
-      LeaseRef(cancel.id, sourceId, senderAddress, recipient, amount, height, LeaseStatus(false), height, cancelId)
-    }
-
-    private[this] def leaseIdToLeaseRef(leaseId: ByteStr): LeaseRef = {
-      val ld        = blockchain.leaseDetails(leaseId)
-      val tm        = ld.flatMap(d => blockchain.transactionMeta(d.sourceId))
-      val recipient = ld.flatMap(d => blockchain.resolveAlias(d.recipient).toOption)
-
-      val (status, cancelHeight, cancelTxId) = ld.get.status match {
-        case LeaseDetails.Status.Active                  => (true, None, None)
-        case LeaseDetails.Status.Cancelled(height, txId) => (false, Some(height), txId)
-        case LeaseDetails.Status.Expired(height)         => (false, Some(height), None)
-      }
-
-      LeaseRef(leaseId, ld.map(_.sourceId), ld.map(_.sender.toAddress), recipient, ld.map(_.amount).getOrElse(0), tm.map(_.height), LeaseStatus(status), cancelHeight, cancelTxId)
-    }
+    private[this] def isBlockV5(height: Int): Boolean =
+      blockchain.isFeatureActivated(BlockchainFeatures.BlockV5, height)
 
     private[http] implicit val leaseWrites: OWrites[InvokeScriptResult.Lease] =
-      LeaseRef.jsonWrites.contramap(leaseToRef)
+      LeaseRef.jsonWrites.contramap(LeaseRef.fromLease(_, blockchain))
 
     private[http] implicit val leaseCancelWrites: OWrites[InvokeScriptResult.LeaseCancel] =
-      LeaseRef.jsonWrites.contramap(leaseCancelToRef)
+      LeaseRef.jsonWrites.contramap(LeaseRef.fromLeaseCancel(_, blockchain))
 
     // To override nested InvokeScriptResult writes
     private[http] implicit lazy val invocationWrites: OWrites[InvokeScriptResult.Invocation] = (i: InvokeScriptResult.Invocation) =>
@@ -413,22 +372,5 @@ object TransactionsApiRoute {
       import InvokeScriptResult.{issueFormat, reissueFormat, burnFormat, sponsorFeeFormat}
       Json.writes[InvokeScriptResult]
     }
-  }
-
-  private[this] final case class LeaseRef(
-      id: ByteStr,
-      originTransactionId: Option[ByteStr],
-      sender: Option[Address],
-      recipient: Option[Address],
-      amount: Long,
-      height: Option[Int],
-      status: LeaseStatus = LeaseStatus.active,
-      cancelHeight: Option[Int] = None,
-      cancelTransactionId: Option[ByteStr] = None
-  )
-  private[this] object LeaseRef {
-    import com.wavesplatform.utils.byteStrFormat
-    implicit val config                        = JsonConfiguration(optionHandlers = OptionHandlers.WritesNull)
-    implicit val jsonWrites: OWrites[LeaseRef] = Json.writes[LeaseRef]
   }
 }
