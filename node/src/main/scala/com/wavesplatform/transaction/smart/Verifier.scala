@@ -5,6 +5,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.google.common.base.Throwables
 import com.wavesplatform.common.state.ByteStr
+import com.wavesplatform.crypto
 import com.wavesplatform.features.BlockchainFeatures
 import com.wavesplatform.features.EstimatorProvider.EstimatorBlockchainExt
 import com.wavesplatform.lang.ValidationError
@@ -20,9 +21,9 @@ import com.wavesplatform.lang.v1.traits.Environment
 import com.wavesplatform.lang.v1.traits.domain.Recipient
 import com.wavesplatform.metrics.*
 import com.wavesplatform.state.*
-import com.wavesplatform.transaction.*
 import com.wavesplatform.transaction.Asset.IssuedAsset
 import com.wavesplatform.transaction.TxValidationError.{GenericError, ScriptExecutionError, TransactionNotAllowedByScript}
+import com.wavesplatform.transaction.*
 import com.wavesplatform.transaction.assets.exchange.{EthOrders, ExchangeTransaction, Order}
 import com.wavesplatform.transaction.smart.script.ScriptRunner
 import com.wavesplatform.transaction.smart.script.ScriptRunner.TxOrd
@@ -284,7 +285,7 @@ object Verifier extends ScorexLogging {
   def verifyAsEllipticCurveSignature[T <: Proven & Authorized](pt: T, checkWeakPk: Boolean): Either[GenericError, T] =
     pt.proofs.proofs match {
       case p +: Nil =>
-        Either.cond(true, pt, GenericError(s"Proof doesn't validate as signature for $pt"))
+        Either.cond(crypto.verify(p, pt.bodyBytes(), pt.sender, checkWeakPk), pt, GenericError(s"Proof doesn't validate as signature for $pt"))
       case _ => Left(GenericError("Transactions from non-scripted accounts must have exactly 1 proof"))
     }
 

@@ -87,6 +87,5 @@ private[transaction] object LeaseRef {
       cancelHeight,
       cancelTxId
     )
-
   }
 }
