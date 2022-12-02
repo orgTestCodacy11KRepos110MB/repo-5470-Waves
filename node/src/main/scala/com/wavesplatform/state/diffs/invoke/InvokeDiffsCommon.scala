@@ -773,12 +773,12 @@ object InvokeDiffsCommon {
       case _ => Right(r)
     }
 
-  def enrichLeaseTrace(result: ScriptResult, blockchain: Blockchain, invoke: InvokeScriptTransactionLike): ScriptResult =
+  def enrichLeaseTrace(result: ScriptResult, blockchain: Blockchain, invoke: InvokeScriptTransactionLike, sender: Address): ScriptResult =
     result match {
       case r: ScriptResultV4 if r.actions.exists(a => a.isInstanceOf[Lease] || a.isInstanceOf[LeaseCancel]) =>
         val newActions = r.actions.map {
           case l: Lease =>
-            Lease(l.recipient, l.amount, l.nonce, Some(blockchain.height), Some(invoke.id()), Some(ByteStr(invoke.sender.toAddress.bytes)))
+            Lease(l.recipient, l.amount, l.nonce, Some(blockchain.height), Some(invoke.id()), Some(ByteStr(sender.bytes)))
           case l: LeaseCancel =>
             val info = blockchain.leaseDetails(l.id)
             LeaseCancel(
@@ -786,7 +786,7 @@ object InvokeDiffsCommon {
               Some(blockchain.height),
               Some(invoke.id()),
               info.map(_.sourceId),
-              Some(ByteStr(invoke.sender.toAddress.bytes)),
+              Some(ByteStr(sender.bytes)),
               info.map(_.amount),
               info.flatMap(i => blockchain.resolveAlias(i.recipient).toOption).map(a => ByteStr(a.bytes))
             )

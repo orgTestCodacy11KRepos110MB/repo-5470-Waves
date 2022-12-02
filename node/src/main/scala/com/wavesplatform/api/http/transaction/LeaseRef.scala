@@ -30,6 +30,7 @@ private[transaction] object LeaseRef {
   private def create(
       blockchain: Blockchain,
       leaseId: ByteStr,
+      defaultStatus: Boolean,
       height: Option[Int] = None,
       cancelId: Option[ByteStr] = None,
       sourceId: Option[ByteStr] = None,
@@ -43,9 +44,10 @@ private[transaction] object LeaseRef {
     val senderAddress    = senderAddressB.flatMap(b => Address.fromBytes(b.arr).toOption)
 
     val (status, cancelHeight, cancelTxId) = details.map(_.status) match {
-      case Some(LeaseDetails.Status.Active) | None           => (true, None, None)
+      case Some(LeaseDetails.Status.Active)                  => (true, None, None)
       case Some(LeaseDetails.Status.Cancelled(height, txId)) => (false, Some(height), txId)
       case Some(LeaseDetails.Status.Expired(height))         => (false, Some(height), None)
+      case None                                              => (defaultStatus, None, None)
     }
 
     LeaseRef(
@@ -63,14 +65,34 @@ private[transaction] object LeaseRef {
 
   def fromLease(lease: Lease, blockchain: Blockchain): LeaseRef = {
     val recipient = blockchain.resolveAlias(lease.recipient).toOption
-    create(blockchain, lease.id, lease.height, None, lease.invokeId, lease.senderAddress, Some(lease.amount), recipient)
+    create(
+      blockchain,
+      lease.id,
+      defaultStatus = true,
+      lease.height,
+      None,
+      lease.invokeId,
+      lease.senderAddress,
+      Some(lease.amount),
+      recipient
+    )
   }
 
   def fromLeaseCancel(cancel: LeaseCancel, blockchain: Blockchain): LeaseRef = {
     val recipient = cancel.recipient.flatMap(a => Address.fromBytes(a.arr).toOption)
-    create(blockchain, cancel.id, cancel.height, cancel.invokeId, cancel.sourceId, cancel.senderAddress, cancel.amount, recipient)
+    create(
+      blockchain,
+      cancel.id,
+      defaultStatus = false,
+      cancel.height,
+      cancel.invokeId,
+      cancel.sourceId,
+      cancel.senderAddress,
+      cancel.amount,
+      recipient
+    )
   }
 
   def fromLeaseCancelTransaction(leaseCancel: LeaseCancelTransaction, blockchain: Blockchain): LeaseRef =
-    create(blockchain, leaseCancel.leaseId)
+    create(blockchain, leaseCancel.leaseId, defaultStatus = false)
 }

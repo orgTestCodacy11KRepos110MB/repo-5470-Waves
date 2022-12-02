@@ -23,6 +23,7 @@ import com.wavesplatform.lang.v1.compiler.Terms.TRUE
 import com.wavesplatform.lang.v1.compiler.TestCompiler
 import com.wavesplatform.lang.v1.estimator.v3.ScriptEstimatorV3
 import com.wavesplatform.lang.v1.evaluator.ctx.impl.PureContext
+import com.wavesplatform.lang.v1.traits.domain.Recipient.Address
 import com.wavesplatform.lang.v1.traits.domain.{Issue, Lease, Recipient}
 import com.wavesplatform.network.PeerDatabase
 import com.wavesplatform.settings.{TestFunctionalitySettings, WavesSettings}
@@ -31,6 +32,7 @@ import com.wavesplatform.state.diffs.ENOUGH_AMT
 import com.wavesplatform.state.reader.LeaseDetails
 import com.wavesplatform.state.{AccountScriptInfo, AssetDescription, AssetScriptInfo, Blockchain, Height, NG, StateHash, TxMeta}
 import com.wavesplatform.test.*
+import com.wavesplatform.transaction.TxHelpers.{defaultAddress, setScript, signer}
 import com.wavesplatform.transaction.assets.exchange.OrderType
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction.Payment
@@ -38,7 +40,6 @@ import com.wavesplatform.transaction.smart.script.ScriptCompiler
 import com.wavesplatform.transaction.transfer.TransferTransaction
 import com.wavesplatform.transaction.{ERC20Address, TxHelpers, TxVersion}
 import com.wavesplatform.utils.Schedulers
-import com.wavesplatform.{BlockchainStubHelpers, NTPTime, TestValues, TestWallet}
 import monix.eval.Task
 import org.scalamock.scalatest.PathMockFactory
 import org.scalatest.{Assertion, OptionValues}
@@ -2069,6 +2070,403 @@ class DebugApiRouteSpec
           """.stripMargin
         )
         (json \ "height").as[Int] shouldBe 1
+      }
+    }
+
+    "invoke tx returning leases with error" in {
+      val dApp1Kp      = signer(1)
+      val dApp2Kp      = signer(2)
+      val leaseAddress = signer(3).toAddress
+      val amount       = 123
+
+      withDomain(RideV6, AddrWithBalance.enoughBalances(dApp1Kp, dApp2Kp)) { d =>
+        val dApp1 = TestCompiler(V6).compileContract(
+          s"""
+             | @Callable(i)
+             | func default() = {
+             |   strict r = Address(base58'${dApp2Kp.toAddress}').invoke("default", [], [])
+             |   if (true) then throw() else []
+             | }
+           """.stripMargin
+        )
+        val dApp2 = TestCompiler(V6).compileContract(
+          s"""
+             | @Callable(i)
+             | func default() = {
+             |   let lease  = Lease(Address(base58'$leaseAddress'), $amount)
+             |   let cancel = LeaseCancel(calculateLeaseId(lease))
+             |   [lease, cancel]
+             | }
+           """.stripMargin
+        )
+        d.appendBlock(setScript(dApp1Kp, dApp1), setScript(dApp2Kp, dApp2))
+
+        val route   = debugApiRoute.copy(blockchain = d.blockchain, priorityPoolBlockchain = () => d.blockchain).route
+        val invoke  = TxHelpers.invoke(dApp1Kp.toAddress)
+        val leaseId = Lease.calculateId(Lease(Address(ByteStr(leaseAddress.bytes)), amount, 0), invoke.id())
+
+        Post(routePath("/validate"), HttpEntity(ContentTypes.`application/json`, invoke.json().toString())) ~> route ~> check {
+          val json = responseAs[JsValue]
+          json should matchJson(
+            s"""
+               |{
+               |  "valid": false,
+               |  "validationTime": ${(json \ "validationTime").as[Int]},
+               |  "trace": [
+               |    {
+               |      "type": "dApp",
+               |      "id": "3MuVqVJGmFsHeuFni5RbjRmALuGCkEwzZtC",
+               |      "function": "default",
+               |      "args": [],
+               |      "invocations": [
+               |        {
+               |          "type": "dApp",
+               |          "id": "3MsY23LPQnvPZnBKpvs6YcnCvGjLVD42pSy",
+               |          "function": "default",
+               |          "args": [],
+               |          "invocations": [],
+               |          "result": {
+               |            "data": [],
+               |            "transfers": [],
+               |            "issues": [],
+               |            "reissues": [],
+               |            "burns": [],
+               |            "sponsorFees": [],
+               |            "leases": [
+               |              {
+               |                "id": "$leaseId",
+               |                "originTransactionId": "${invoke.id()}",
+               |                "sender": "${dApp2Kp.toAddress}",
+               |                "recipient": "$leaseAddress",
+               |                "amount": $amount,
+               |                "height": 2,
+               |                "status": "active",
+               |                "cancelHeight": null,
+               |                "cancelTransactionId": null
+               |              }
+               |            ],
+               |            "leaseCancels": [
+               |              {
+               |                "id": "$leaseId",
+               |                "originTransactionId": "${invoke.id()}",
+               |                "sender": "${dApp2Kp.toAddress}",
+               |                "recipient": "$leaseAddress",
+               |                "amount": $amount,
+               |                "height": 2,
+               |                "status": "canceled",
+               |                "cancelHeight": null,
+               |                "cancelTransactionId": "${invoke.id()}"
+               |              }
+               |            ],
+               |            "invokes": []
+               |          },
+               |          "error": null,
+               |          "vars": [
+               |            {
+               |              "name": "i",
+               |              "type": "Invocation",
+               |              "value": {
+               |                "originCaller": {
+               |                  "type": "Address",
+               |                  "value": {
+               |                    "bytes": {
+               |                      "type": "ByteVector",
+               |                      "value": "$defaultAddress"
+               |                    }
+               |                  }
+               |                },
+               |                "payments": {
+               |                  "type": "Array",
+               |                  "value": []
+               |                },
+               |                "callerPublicKey": {
+               |                  "type": "ByteVector",
+               |                  "value": "8h47fXqSctZ6sb3q6Sst9qH1UNzR5fjez2eEP6BvEfcr"
+               |                },
+               |                "feeAssetId": {
+               |                  "type": "Unit",
+               |                  "value": {}
+               |                },
+               |                "originCallerPublicKey": {
+               |                  "type": "ByteVector",
+               |                  "value": "9BUoYQYq7K38mkk61q8aMH9kD9fKSVL1Fib7FbH6nUkQ"
+               |                },
+               |                "transactionId": {
+               |                  "type": "ByteVector",
+               |                  "value": "${invoke.id()}"
+               |                },
+               |                "caller": {
+               |                  "type": "Address",
+               |                  "value": {
+               |                    "bytes": {
+               |                      "type": "ByteVector",
+               |                      "value": "3MuVqVJGmFsHeuFni5RbjRmALuGCkEwzZtC"
+               |                    }
+               |                  }
+               |                },
+               |                "fee": {
+               |                  "type": "Int",
+               |                  "value": 500000
+               |                }
+               |              }
+               |            },
+               |            {
+               |              "name": "default.@args",
+               |              "type": "Array",
+               |              "value": []
+               |            },
+               |            {
+               |              "name": "Address.@args",
+               |              "type": "Array",
+               |              "value": [
+               |                {
+               |                  "type": "ByteVector",
+               |                  "value": "$leaseAddress"
+               |                }
+               |              ]
+               |            },
+               |            {
+               |              "name": "Address.@complexity",
+               |              "type": "Int",
+               |              "value": 1
+               |            },
+               |            {
+               |              "name": "@complexityLimit",
+               |              "type": "Int",
+               |              "value": 51923
+               |            },
+               |            {
+               |              "name": "Lease.@args",
+               |              "type": "Array",
+               |              "value": [
+               |                {
+               |                  "type": "Address",
+               |                  "value": {
+               |                    "bytes": {
+               |                      "type": "ByteVector",
+               |                      "value": "$leaseAddress"
+               |                    }
+               |                  }
+               |                },
+               |                {
+               |                  "type": "Int",
+               |                  "value": $amount
+               |                }
+               |              ]
+               |            },
+               |            {
+               |              "name": "Lease.@complexity",
+               |              "type": "Int",
+               |              "value": 1
+               |            },
+               |            {
+               |              "name": "@complexityLimit",
+               |              "type": "Int",
+               |              "value": 51922
+               |            },
+               |            {
+               |              "name": "lease",
+               |              "type": "Lease",
+               |              "value": {
+               |                "recipient": {
+               |                  "type": "Address",
+               |                  "value": {
+               |                    "bytes": {
+               |                      "type": "ByteVector",
+               |                      "value": "$leaseAddress"
+               |                    }
+               |                  }
+               |                },
+               |                "amount": {
+               |                  "type": "Int",
+               |                  "value": $amount
+               |                },
+               |                "nonce": {
+               |                  "type": "Int",
+               |                  "value": 0
+               |                }
+               |              }
+               |            },
+               |            {
+               |              "name": "calculateLeaseId.@args",
+               |              "type": "Array",
+               |              "value": [
+               |                {
+               |                  "type": "Lease",
+               |                  "value": {
+               |                    "recipient": {
+               |                      "type": "Address",
+               |                      "value": {
+               |                        "bytes": {
+               |                          "type": "ByteVector",
+               |                          "value": "$leaseAddress"
+               |                        }
+               |                      }
+               |                    },
+               |                    "amount": {
+               |                      "type": "Int",
+               |                      "value": $amount
+               |                    },
+               |                    "nonce": {
+               |                      "type": "Int",
+               |                      "value": 0
+               |                    }
+               |                  }
+               |                }
+               |              ]
+               |            },
+               |            {
+               |              "name": "calculateLeaseId.@complexity",
+               |              "type": "Int",
+               |              "value": 1
+               |            },
+               |            {
+               |              "name": "@complexityLimit",
+               |              "type": "Int",
+               |              "value": 51921
+               |            },
+               |            {
+               |              "name": "LeaseCancel.@args",
+               |              "type": "Array",
+               |              "value": [
+               |                {
+               |                  "type": "ByteVector",
+               |                  "value": "$leaseId"
+               |                }
+               |              ]
+               |            },
+               |            {
+               |              "name": "cancel",
+               |              "type": "LeaseCancel",
+               |              "value": {
+               |                "leaseId": {
+               |                  "type": "ByteVector",
+               |                  "value": "$leaseId"
+               |                }
+               |              }
+               |            },
+               |            {
+               |              "name": "LeaseCancel.@complexity",
+               |              "type": "Int",
+               |              "value": 1
+               |            },
+               |            {
+               |              "name": "@complexityLimit",
+               |              "type": "Int",
+               |              "value": 51920
+               |            },
+               |            {
+               |              "name": "cons.@args",
+               |              "type": "Array",
+               |              "value": [
+               |                {
+               |                  "type": "LeaseCancel",
+               |                  "value": {
+               |                    "leaseId": {
+               |                      "type": "ByteVector",
+               |                      "value": "$leaseId"
+               |                    }
+               |                  }
+               |                },
+               |                {
+               |                  "type": "Array",
+               |                  "value": []
+               |                }
+               |              ]
+               |            },
+               |            {
+               |              "name": "cons.@complexity",
+               |              "type": "Int",
+               |              "value": 1
+               |            },
+               |            {
+               |              "name": "@complexityLimit",
+               |              "type": "Int",
+               |              "value": 51919
+               |            },
+               |            {
+               |              "name": "cons.@args",
+               |              "type": "Array",
+               |              "value": [
+               |                {
+               |                  "type": "Lease",
+               |                  "value": {
+               |                    "recipient": {
+               |                      "type": "Address",
+               |                      "value": {
+               |                        "bytes": {
+               |                          "type": "ByteVector",
+               |                          "value": "$leaseAddress"
+               |                        }
+               |                      }
+               |                    },
+               |                    "amount": {
+               |                      "type": "Int",
+               |                      "value": $amount
+               |                    },
+               |                    "nonce": {
+               |                      "type": "Int",
+               |                      "value": 0
+               |                    }
+               |                  }
+               |                },
+               |                {
+               |                  "type": "Array",
+               |                  "value": [
+               |                    {
+               |                      "type": "LeaseCancel",
+               |                      "value": {
+               |                        "leaseId": {
+               |                          "type": "ByteVector",
+               |                          "value": "$leaseId"
+               |                        }
+               |                      }
+               |                    }
+               |                  ]
+               |                }
+               |              ]
+               |            },
+               |            {
+               |              "name": "cons.@complexity",
+               |              "type": "Int",
+               |              "value": 1
+               |            },
+               |            {
+               |              "name": "@complexityLimit",
+               |              "type": "Int",
+               |              "value": 51918
+               |            }
+               |          ]
+               |        }
+               |      ],
+               |      "result": "failure",
+               |      "error": "InvokeRejectError(error = Explicit script termination)"
+               |    }
+               |  ],
+               |  "height": 2,
+               |  "error": "Error while executing dApp: Explicit script termination",
+               |  "transaction": {
+               |    "type": 16,
+               |    "id": "${invoke.id()}",
+               |    "fee": 500000,
+               |    "feeAssetId": null,
+               |    "timestamp": ${(json \ "transaction" \ "timestamp").as[Long]},
+               |    "version": 2,
+               |    "chainId": 84,
+               |    "sender": "$defaultAddress",
+               |    "senderPublicKey": "9BUoYQYq7K38mkk61q8aMH9kD9fKSVL1Fib7FbH6nUkQ",
+               |    "proofs": [ "${(json \ "transaction" \ "proofs" \ 0).as[String]}" ],
+               |    "dApp": "3MuVqVJGmFsHeuFni5RbjRmALuGCkEwzZtC",
+               |    "payment": [],
+               |    "call": {
+               |      "function": "default",
+               |      "args": []
+               |    }
+               |  }
+               |}
+             """.stripMargin
+          )
+        }
       }
     }
 
