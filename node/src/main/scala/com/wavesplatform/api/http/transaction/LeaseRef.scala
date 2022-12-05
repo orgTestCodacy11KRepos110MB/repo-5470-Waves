@@ -48,7 +48,7 @@ private[transaction] object LeaseRef {
       case Some(LeaseDetails.Status.Cancelled(height, txId)) => (false, Some(height), txId)
       case Some(LeaseDetails.Status.Expired(height))         => (false, Some(height), None)
       case None if active                                    => (active, None, None)
-      case None if !active                                   => (active, height, None)
+      case None                                              => (active, height, None)
     }
 
     LeaseRef(
