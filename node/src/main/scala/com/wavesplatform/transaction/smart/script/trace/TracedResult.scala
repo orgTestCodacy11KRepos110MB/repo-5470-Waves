@@ -6,9 +6,6 @@ import cats.kernel.Semigroup
 import cats.syntax.either.*
 import cats.syntax.semigroup.*
 import cats.{Monad, StackSafeMonad}
-import com.wavesplatform.api.http.ApiError
-import com.wavesplatform.transaction.Transaction
-import play.api.libs.json.{JsObject, Json}
 
 final case class TracedResult[+E, +A](
     resultE: Either[E, A],
@@ -36,18 +33,6 @@ final case class TracedResult[+E, +A](
   // added for for-comprehension destructuring
   def withFilter(f: A => Boolean): TracedResult[E, A] =
     copy(resultE.filterOrElse(f, throw new MatchError("TracedResult destructuring error")))
-
-  def json(implicit ev1: E => ApiError, ev2: A => Transaction): JsObject = {
-    val resultJson = resultE match {
-      case Right(value) => value.json()
-      case Left(e)      => e.json
-    }
-    resultJson ++ Json.obj("trace" -> trace.map(_.json))
-  }
-
-  def loggedJson(implicit ev1: E => ApiError, ev2: A => Transaction): JsObject = {
-    this.json ++ Json.obj("trace" -> trace.map(_.loggedJson))
-  }
 
   def attribute[T](key: TracedResult.Attribute): T =
     attributes(key).asInstanceOf[T]
