@@ -1552,6 +1552,8 @@ class DebugApiRouteSpec
       val nonce2     = 2
       val leaseId2   = Lease.calculateId(Lease(recipient2, amount2, nonce2), invoke.id())
 
+      val leaseCancelAmount = 786
+
       val blockchain = createBlockchainStub { blockchain =>
         (blockchain.balance _).when(*, *).returns(Long.MaxValue)
 
@@ -1606,7 +1608,7 @@ class DebugApiRouteSpec
 
         (blockchain.leaseDetails _)
           .when(leaseCancelId)
-          .returns(Some(LeaseDetails(dAppPk, TxHelpers.defaultAddress, 100, LeaseDetails.Status.Active, leaseCancelId, 1)))
+          .returns(Some(LeaseDetails(dAppPk, TxHelpers.defaultAddress, leaseCancelAmount, LeaseDetails.Status.Active, leaseCancelId, 1)))
           .anyNumberOfTimes()
 
         (blockchain.leaseDetails _)
@@ -1662,7 +1664,7 @@ class DebugApiRouteSpec
                                                                  |    "originTransactionId" : "$leaseCancelId",
                                                                  |    "sender" : "$dAppAddress",
                                                                  |    "recipient" : "${TxHelpers.defaultAddress}",
-                                                                 |    "amount" : 100,
+                                                                 |    "amount" : $leaseCancelAmount,
                                                                  |    "height" : 1,
                                                                  |    "status" : "canceled",
                                                                  |    "cancelHeight" : 1,
@@ -1716,7 +1718,7 @@ class DebugApiRouteSpec
              |      "originTransactionId" : "$leaseCancelId",
              |      "sender" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
              |      "recipient" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9",
-             |      "amount" : 100,
+             |      "amount" : $leaseCancelAmount,
              |      "height" : 1,
              |      "status" : "canceled",
              |      "cancelHeight" : 1,
