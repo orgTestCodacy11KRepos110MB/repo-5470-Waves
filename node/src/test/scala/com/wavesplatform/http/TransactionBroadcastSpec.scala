@@ -3,7 +3,7 @@ package com.wavesplatform.http
 import com.wavesplatform.BlockchainStubHelpers
 import com.wavesplatform.account.{AddressScheme, KeyPair}
 import com.wavesplatform.api.common.CommonTransactionsApi
-import com.wavesplatform.api.http.{RouteTimeout}
+import com.wavesplatform.api.http.RouteTimeout
 import com.wavesplatform.api.http.transaction.TransactionsApiRoute
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.*
@@ -22,8 +22,8 @@ import com.wavesplatform.wallet.Wallet
 import org.scalamock.scalatest.PathMockFactory
 import play.api.libs.json.{JsObject, JsValue, Json}
 
-import scala.concurrent.duration.*
 import scala.concurrent.Future
+import scala.concurrent.duration.*
 import scala.util.Random
 
 class TransactionBroadcastSpec
@@ -320,24 +320,15 @@ class TransactionBroadcastSpec
              |        "recipient" : "${recipient1.bytes}",
              |        "amount" : $amount1,
              |        "nonce" : $nonce1,
-             |        "id" : "$leaseId1",
-             |        "height" : 1,
-             |        "invokeId" : "${invoke.id()}",
-             |        "senderAddress" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9"
+             |        "id" : "$leaseId1"
              |      }, {
              |        "recipient" : "alias:T:${recipient2.name}",
              |        "amount" : $amount2,
              |        "nonce" : $nonce2,
-             |        "id" : "$leaseId2",
-             |        "height" : 1,
-             |        "invokeId" : "${invoke.id()}",
-             |        "senderAddress" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9"
+             |        "id" : "$leaseId2"
              |      } ],
              |      "leaseCancels" : [ {
-             |        "id" : "$leaseCancelId",
-             |        "height" : 1,
-             |        "invokeId" : "${invoke.id()}",
-             |        "senderAddress" : "3MtGzgmNa5fMjGCcPi5nqMTdtZkfojyWHL9"
+             |        "id" : "$leaseCancelId"
              |      } ],
              |      "invokes" : [ ]
              |    },

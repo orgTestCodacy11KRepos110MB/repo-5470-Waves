@@ -76,13 +76,13 @@ object InvokeScriptResult {
   }
 
   case class Lease(
-    recipient: AddressOrAlias,
-    amount: Long,
-    nonce: Long,
-    id: ByteStr,
-    height: Option[Int] = None,
-    invokeId: Option[ByteStr] = None,
-    senderAddress: Option[ByteStr] = None
+      recipient: AddressOrAlias,
+      amount: Long,
+      nonce: Long,
+      id: ByteStr,
+      height: Option[Int] = None,
+      invokeId: Option[ByteStr] = None,
+      senderAddress: Option[ByteStr] = None
   )
 
   object Lease {
@@ -91,9 +91,15 @@ object InvokeScriptResult {
       case alias: Alias     => JsString(alias.toString)
       case _                => JsNull
     }
-    implicit val jsonWrites = Json.writes[Lease]
+    implicit val jsonWrites = Writes[Lease] { lease =>
+      Json.obj(
+        "recipient" -> lease.recipient,
+        "amount"    -> lease.amount,
+        "nonce"     -> lease.nonce,
+        "id"        -> lease.id
+      )
+    }
   }
-
 
   def paymentsFromPortfolio(addr: Address, portfolio: Portfolio): Seq[Payment] = {
     val waves  = InvokeScriptResult.Payment(addr, Waves, portfolio.balance)
@@ -116,7 +122,7 @@ object InvokeScriptResult {
   implicit val reissueFormat      = Json.writes[Reissue]
   implicit val burnFormat         = Json.writes[Burn]
   implicit val sponsorFeeFormat   = Json.writes[SponsorFee]
-  implicit val leaseCancelFormat  = Json.writes[LeaseCancel]
+  implicit val leaseCancelFormat  = Writes[LeaseCancel] { cancel => Json.obj("id" -> cancel.id) }
   implicit val errorMessageFormat = Json.writes[ErrorMessage]
   implicit val invocationFormat: Writes[Invocation] = (i: Invocation) =>
     Json.obj(
