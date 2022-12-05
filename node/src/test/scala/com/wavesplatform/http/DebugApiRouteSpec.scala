@@ -7,7 +7,7 @@ import com.wavesplatform.*
 import com.wavesplatform.account.Alias
 import com.wavesplatform.api.common.CommonTransactionsApi
 import com.wavesplatform.api.http.ApiError.ApiKeyNotValid
-import com.wavesplatform.api.http.{DebugApiRoute, RouteTimeout}
+import com.wavesplatform.api.http.{DebugApiRoute, RouteTimeout, handleAllExceptions}
 import com.wavesplatform.block.Block
 import com.wavesplatform.common.state.ByteStr
 import com.wavesplatform.common.utils.*
@@ -32,13 +32,12 @@ import com.wavesplatform.state.diffs.ENOUGH_AMT
 import com.wavesplatform.state.reader.LeaseDetails
 import com.wavesplatform.state.{AccountScriptInfo, AssetDescription, AssetScriptInfo, Blockchain, Height, NG, StateHash, TxMeta}
 import com.wavesplatform.test.*
-import com.wavesplatform.transaction.TxHelpers.{defaultAddress, lease, setScript, signer}
+import com.wavesplatform.transaction.TxHelpers.*
 import com.wavesplatform.transaction.assets.exchange.OrderType
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction
 import com.wavesplatform.transaction.smart.InvokeScriptTransaction.Payment
 import com.wavesplatform.transaction.smart.script.ScriptCompiler
-import com.wavesplatform.transaction.transfer.TransferTransaction
-import com.wavesplatform.transaction.{ERC20Address, TxHelpers, TxVersion}
+import com.wavesplatform.transaction.{ERC20Address, Transaction, TxHelpers, TxVersion}
 import com.wavesplatform.utils.Schedulers
 import monix.eval.Task
 import org.scalamock.scalatest.PathMockFactory
@@ -147,7 +146,7 @@ class DebugApiRouteSpec
   }
 
   routePath("/validate") - {
-    def validatePost(tx: TransferTransaction) =
+    def validatePost(tx: Transaction) =
       Post(routePath("/validate"), HttpEntity(ContentTypes.`application/json`, tx.json().toString()))
 
     "takes the priority pool into account" in withDomain(balances = Seq(AddrWithBalance(TxHelpers.defaultAddress))) { d =>
@@ -188,6 +187,17 @@ class DebugApiRouteSpec
         (json \ "valid").as[Boolean] shouldBe false
         (json \ "validationTime").as[Int] shouldBe 1000 +- 1000
         (json \ "error").as[String] should include("Attempt to transfer unavailable funds")
+      }
+    }
+
+    "NoSuchElementException" in {
+      val blockchain = createBlockchainStub { b =>
+        (b.accountScript _).when(*).throws(new NoSuchElementException())
+      }
+      val route = handleAllExceptions(routeWithBlockchain(blockchain))
+      validatePost(TxHelpers.invoke()) ~> route ~> check {
+        responseAs[String] shouldBe """{"error":0,"message":"Error is unknown"}"""
+        response.status shouldBe StatusCodes.InternalServerError
       }
     }
 
