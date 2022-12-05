@@ -73,7 +73,7 @@ class TransactionsRouteSpec
     utxPoolSize,
     utxPoolSynchronizer,
     testTime,
-    new RouteTimeout(600000.seconds)(Schedulers.fixedPool(1, "heavy-request-scheduler"))
+    new RouteTimeout(5.minutes)(Schedulers.fixedPool(1, "heavy-request-scheduler"))
   )
 
   private val route = seal(transactionsApiRoute.route)
