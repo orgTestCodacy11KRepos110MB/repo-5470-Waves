@@ -2103,7 +2103,8 @@ class DebugApiRouteSpec
              | }
            """.stripMargin
         )
-        d.appendBlock(leaseTx, setScript(dApp1Kp, dApp1), setScript(dApp2Kp, dApp2))
+        d.appendBlock(leaseTx)
+        d.appendBlock(setScript(dApp1Kp, dApp1), setScript(dApp2Kp, dApp2))
 
         val route   = debugApiRoute.copy(blockchain = d.blockchain, priorityPoolBlockchain = () => d.blockchain).route
         val invoke  = TxHelpers.invoke(dApp1Kp.toAddress)
@@ -2143,7 +2144,7 @@ class DebugApiRouteSpec
                |                "sender": "${dApp2Kp.toAddress}",
                |                "recipient": "$leaseAddress",
                |                "amount": $amount,
-               |                "height": 2,
+               |                "height": 3,
                |                "status": "active",
                |                "cancelHeight": null,
                |                "cancelTransactionId": null
@@ -2156,9 +2157,9 @@ class DebugApiRouteSpec
                |                "sender": "${dApp2Kp.toAddress}",
                |                "recipient": "$leaseAddress",
                |                "amount": $amount,
-               |                "height": 2,
+               |                "height": 3,
                |                "status": "canceled",
-               |                "cancelHeight": null,
+               |                "cancelHeight": 3,
                |                "cancelTransactionId": "${invoke.id()}"
                |              }, {
                |                "id" : "${leaseTx.id()}",
@@ -2516,7 +2517,7 @@ class DebugApiRouteSpec
                |      "error": "InvokeRejectError(error = Explicit script termination)"
                |    }
                |  ],
-               |  "height": 2,
+               |  "height": 3,
                |  "error": "Error while executing dApp: Explicit script termination",
                |  "transaction": {
                |    "type": 16,
