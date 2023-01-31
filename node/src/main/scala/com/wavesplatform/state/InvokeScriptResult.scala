@@ -194,18 +194,15 @@ object InvokeScriptResult {
       Payment(langAddressToAddress(t.address), Asset.fromCompatId(t.assetId), t.amount)
 
     def langLeaseToLease(l: lang.Lease): Lease =
-      l match {
-        case l: lang.Lease =>
-          Lease(
-            AddressOrAlias.fromRide(l.recipient).explicitGet(),
-            l.amount,
-            l.nonce,
-            lang.Lease.calculateId(l, invokeId),
-            l.height,
-            l.invokeId,
-            l.senderAddress
-          )
-      }
+      Lease(
+        AddressOrAlias.fromRide(l.recipient).explicitGet(),
+        l.amount,
+        l.nonce,
+        lang.Lease.calculateId(l, invokeId),
+        l.height,
+        l.invokeId,
+        l.senderAddress
+      )
 
     result match {
       case ScriptResultV3(ds, ts, _) =>
